@@ -1,0 +1,26 @@
+"""Glossário educativo com 22 termos em linguagem simples (RF10)."""
+
+GLOSSARY = [
+    ("Ação", "Pedaço de uma empresa negociado na bolsa. Seu preço sobe e desce todos os dias."),
+    ("Alocação", "Como o seu dinheiro está dividido entre os tipos de investimento."),
+    ("B3", "A bolsa de valores do Brasil, onde ações e fundos imobiliários são negociados."),
+    ("Benchmark", "Uma referência para comparar o rendimento, como o CDI ou a inflação."),
+    ("CDB", "Título de renda fixa emitido por bancos. Você empresta dinheiro ao banco e recebe juros."),
+    ("CDI", "Taxa que os bancos usam para emprestar dinheiro entre si. É a principal referência da renda fixa."),
+    ("% do CDI", "Quanto do CDI a aplicação paga. 105% do CDI rende um pouco mais que o próprio CDI."),
+    ("Cotação", "O preço de um ativo em determinado momento."),
+    ("Diversificação", "Dividir o dinheiro entre ativos diferentes para não depender de um só."),
+    ("FII", "Fundo imobiliário: reúne dinheiro de muitas pessoas para investir em imóveis ou títulos do setor."),
+    ("FGC", "Fundo Garantidor de Créditos: protege parte do dinheiro aplicado em bancos se a instituição quebrar."),
+    ("FGCoop", "Fundo que protege depósitos e aplicações em cooperativas de crédito, nos limites da regra."),
+    ("Inflação", "Aumento geral dos preços. Se o investimento rende menos que a inflação, você perde poder de compra."),
+    ("IPCA", "O índice oficial de inflação do Brasil, calculado pelo IBGE."),
+    ("IPCA+", "Aplicação que paga a inflação (IPCA) mais uma taxa fixa por ano, por exemplo IPCA + 6%."),
+    ("LCA", "Letra de Crédito do Agronegócio: renda fixa isenta de imposto de renda para pessoa física."),
+    ("Liquidez", "A facilidade de transformar o investimento em dinheiro sem perder valor."),
+    ("Patrimônio", "O valor total de todas as suas aplicações hoje."),
+    ("Poupança", "Aplicação simples e popular. Costuma render menos que o CDI."),
+    ("RDC", "Recibo de Depósito Cooperativo: a renda fixa das cooperativas de crédito, parecida com o CDB."),
+    ("Rentabilidade", "Quanto o investimento rendeu em relação ao valor aplicado, em porcentagem."),
+    ("Vencimento", "A data em que uma aplicação de renda fixa termina e o dinheiro volta para você."),
+]
