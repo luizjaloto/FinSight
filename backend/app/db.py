@@ -27,3 +27,5 @@ def ensure_indexes(db: Database) -> None:
     db.alerts.create_index("user_id")
     db.quotes_cache.create_index("ticker", unique=True)
     db.indicators.create_index("serie", unique=True)
+    # S2: contadores de tentativas expiram sozinhos (TTL); a lógica não depende do TTL para estar correta
+    db.rate_limits.create_index("expires_at", expireAfterSeconds=0)

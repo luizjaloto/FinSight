@@ -41,3 +41,22 @@ Dados antigos que violem esses limites (gravados antes da validação) não derr
 - Dúvida para validar: depois do vencimento, o dinheiro normalmente volta para a conta do associado. Manter o ativo vencido
   somando no patrimônio é a opção conservadora (o dinheiro continua existindo); o docente pode preferir retirá-lo dos totais.
 - O cálculo do IPCA+ continua usando dias corridos/365 até o vencimento; a troca por 252 dias úteis é o item D3, fora deste pacote.
+
+## S2 – Limite de tentativas **[validar com o docente]**
+
+| Rota | Chave | Limite | Bloqueio |
+|---|---|---|---|
+| `POST /auth/login` | e-mail | 5 falhas por minuto | 60 s, dobrando a cada novo estouro (teto 15 min) |
+| `POST /auth/login` | IP | 20 falhas por minuto | igual |
+| `POST /auth/register` | IP e e-mail | 5 pedidos por minuto | 60 s, dobrando (teto 1 h) |
+
+- A resposta é 429 com o cabeçalho `Retry-After`. Login certo zera o contador do e-mail, mas a memória de bloqueios
+  anteriores dura 24 h (é ela que faz o bloqueio seguinte ser mais longo).
+- Contadores ficam no MongoDB (coleção `rate_limits`, com índice TTL), sem dependência nova. Escolhido no lugar do slowapi
+  porque o contador precisa ser compartilhado entre processos do servidor e já temos o banco.
+- LGPD: as chaves guardam um hash SHA-256 do e-mail e do IP, nunca o valor em texto.
+- `X-Forwarded-For` só é considerado quando a conexão vem de um IP listado em `TRUSTED_PROXIES` (vazio por padrão).
+  Nesse caso vale o primeiro IP não confiável lido da direita para a esquerda. Atrás do nginx do Docker, é preciso
+  configurar `TRUSTED_PROXIES` com o IP do container do nginx; isso depende do item S6 (proxy de /api), fora deste pacote.
+- Limitação conhecida: o contador não é estritamente atômico (leitura e escrita separadas). Em rajadas simultâneas, algumas
+  tentativas a mais podem passar antes do bloqueio. Aceitável para o volume do projeto; registrado para revisão.

@@ -27,7 +27,7 @@ def test_tempo_parecido_para_email_existente_e_inexistente(client, auth):
             tempos.append(time.perf_counter() - t)
         return statistics.median(tempos)
 
-    _login(client, "teste@finsight.app")  # aquece
+    _login(client, "aquecimento@finsight.app")  # aquece sem gastar tentativas do e-mail medido (limite do S2)
     existe, nao_existe = mediana("teste@finsight.app"), mediana("ninguem@finsight.app")
     diferenca = abs(existe - nao_existe) / max(existe, nao_existe)
     assert diferenca < 0.20, f"existente={existe:.3f}s inexistente={nao_existe:.3f}s diferença={diferenca:.0%}"

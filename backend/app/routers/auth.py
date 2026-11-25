@@ -2,21 +2,37 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pymongo.errors import DuplicateKeyError
 
+from ..config import settings
 from ..db import get_db
+from ..services import rate_limit
 from ..models import LoginIn, RegisterIn, TokenOut
 from ..security import PasswordTooLong, create_token, current_user_id, hash_password, verify_login
 
 router = APIRouter(prefix="/auth", tags=["autenticação"])
 
 
+def _too_many(e: rate_limit.RateLimited) -> HTTPException:
+    return HTTPException(status.HTTP_429_TOO_MANY_REQUESTS,
+                         f"Muitas tentativas. Tente de novo em {e.retry_after} segundos.",
+                         headers={"Retry-After": str(e.retry_after)})
+
+
 @router.post("/register", response_model=TokenOut, status_code=status.HTTP_201_CREATED)
-def register(body: RegisterIn):
+def register(body: RegisterIn, request: Request):
+    db = get_db()
+    ip_key = rate_limit.key("register:ip", rate_limit.client_ip(request, settings.trusted_proxies))
+    email_key = rate_limit.key("register:email", body.email)
+    try:
+        rate_limit.ensure_allowed(db, [ip_key, email_key])
+    except rate_limit.RateLimited as e:
+        raise _too_many(e)
+    rate_limit.hit(db, ip_key, rate_limit.REGISTER_IP)
+    rate_limit.hit(db, email_key, rate_limit.REGISTER_EMAIL)
     if not body.accept_terms:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "É preciso aceitar o termo de privacidade para criar a conta.")
-    db = get_db()
     try:
         password_hash = hash_password(body.password)
     except PasswordTooLong as e:  # o modelo já valida; aqui é defesa em profundidade
@@ -38,12 +54,22 @@ def register(body: RegisterIn):
 
 
 @router.post("/login", response_model=TokenOut)
-def login(body: LoginIn):
-    user = get_db().users.find_one({"email": body.email.lower()})
+def login(body: LoginIn, request: Request):
+    db = get_db()
+    ip_key = rate_limit.key("login:ip", rate_limit.client_ip(request, settings.trusted_proxies))
+    email_key = rate_limit.key("login:email", body.email)
+    try:
+        rate_limit.ensure_allowed(db, [email_key, ip_key])
+    except rate_limit.RateLimited as e:
+        raise _too_many(e)
+    user = db.users.find_one({"email": body.email.lower()})
     # mensagem genérica e tempo constante: não revela se o e-mail existe (RF02, S1)
     ok = verify_login(user, body.password)  # roda o bcrypt mesmo se o e-mail não existir
     if user is None or not ok:
+        rate_limit.hit(db, email_key, rate_limit.LOGIN_EMAIL)
+        rate_limit.hit(db, ip_key, rate_limit.LOGIN_IP)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "E-mail ou senha incorretos.")
+    rate_limit.reset(db, email_key)
     return TokenOut(access_token=create_token(user["_id"]), name=user["name"])
 
 

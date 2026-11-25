@@ -31,6 +31,8 @@ class Settings:
     # Limiares das regras de negócio (documento 06_01 – RF09)
     concentration_limit: float = float(os.getenv("CONCENTRATION_LIMIT", "0.25"))
     maturity_alert_days: int = int(os.getenv("MATURITY_ALERT_DAYS", "30"))
+    # Proxies cujo X-Forwarded-For é confiável (ex.: IP do nginx na rede do Docker). Vazio = cabeçalho ignorado (S2).
+    trusted_proxies: tuple = tuple(p.strip() for p in os.getenv("TRUSTED_PROXIES", "").split(",") if p.strip())
 
 
 settings = Settings()
