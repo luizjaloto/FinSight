@@ -102,16 +102,24 @@ export default function Dashboard() {
               <tr><th>Aplicação</th><th>Tipo</th><th>Aplicado</th><th>Hoje</th><th>Rendimento</th><th>Peso</th></tr>
             </thead>
             <tbody>
-              {d.ativos.map((a) => (
-                <tr key={a.id}>
-                  <td>{a.ticker ?? a.name}{a.quote_missing && " *"}</td>
-                  <td>{a.class_label}</td>
-                  <td>{brl(a.invested)}</td>
-                  <td>{brl(a.current)}</td>
-                  <td className={a.return_pct >= 0 ? "pos" : "neg"}>{pct(a.return_pct)}</td>
-                  <td>{pct(a.peso_pct, 1)}</td>
-                </tr>
-              ))}
+              {d.ativos.map((a) =>
+                a.calc_error || a.current == null || a.return_pct == null || a.peso_pct == null ? (
+                  <tr key={a.id}>
+                    <td>{a.ticker ?? a.name}</td>
+                    <td>{a.class_label}</td>
+                    <td colSpan={4} className="neg">Erro de cálculo: confira os dados desta aplicação (fora dos totais)</td>
+                  </tr>
+                ) : (
+                  <tr key={a.id}>
+                    <td>{a.ticker ?? a.name}{a.quote_missing && " *"}</td>
+                    <td>{a.class_label}</td>
+                    <td>{brl(a.invested)}</td>
+                    <td>{brl(a.current)}</td>
+                    <td className={a.return_pct >= 0 ? "pos" : "neg"}>{pct(a.return_pct)}</td>
+                    <td>{pct(a.peso_pct, 1)}</td>
+                  </tr>
+                ),
+              )}
             </tbody>
           </table>
         </div>

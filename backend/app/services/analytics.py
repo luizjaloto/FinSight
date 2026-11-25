@@ -2,6 +2,7 @@
 
 A ferramenta é educativa: mede e explica, mas não recomenda compra ou venda (Resolução CVM nº 30).
 """
+import math
 from datetime import date
 
 import pandas as pd
@@ -102,12 +103,52 @@ def alerts(items: list[dict], total: float, today: date, limit: float, days: int
     return out
 
 
+_NUMERIC = ("invested", "current", "return_pct", "cdi_period_pct", "ipca_period_pct")
+# Falhas esperadas de um cálculo com dados ruins: overflow, divisão por zero, potência de base negativa,
+# campo ausente ou de tipo errado, data inválida.
+_CALC_ERRORS = (ArithmeticError, ValueError, TypeError, KeyError)
+
+
+def _calc_error_item(asset: dict) -> dict:
+    return {
+        "id": asset.get("id"),
+        "name": asset.get("name", "Aplicação"),
+        "ticker": asset.get("ticker"),
+        "type": asset.get("type"),
+        "class_label": CLASS_LABELS.get(asset.get("type", ""), "Outros"),
+        "calc_error": True,
+        "invested": None, "current": None, "return_pct": None, "cdi_period_pct": None, "ipca_period_pct": None,
+        "peso_pct": None, "maturity": asset.get("maturity"), "quote_missing": False,
+    }
+
+
+def safe_value_asset(asset: dict, cdi: list, ipca: list, price: float | None, today: date) -> dict:
+    """value_asset protegido: um ativo com dados inválidos vira 'erro de cálculo' em vez de derrubar o painel (B2)."""
+    try:
+        item = value_asset(asset, cdi, ipca, price, today)
+    except _CALC_ERRORS:
+        return _calc_error_item(asset)
+    if not all(isinstance(item[k], (int, float)) and math.isfinite(item[k]) for k in _NUMERIC) or item["invested"] <= 0:
+        return _calc_error_item(asset)
+    item["calc_error"] = False
+    return item
+
+
 def build_dashboard(assets: list[dict], cdi: list, ipca: list, prices: dict, today: date, limit: float = 0.25, days: int = 30) -> dict:
-    items = [value_asset(a, cdi, ipca, prices.get(a.get("ticker")), today) for a in assets]
+    all_items = [safe_value_asset(a, cdi, ipca, prices.get(a.get("ticker")), today) for a in assets]
+    items = [it for it in all_items if not it["calc_error"]]
+    errors = [it for it in all_items if it["calc_error"]]
+    error_alerts = [{
+        "kind": "erro_calculo",
+        "level": "atencao",
+        "title": f"Não foi possível calcular: {it['ticker'] or it['name']}",
+        "text": "Algum dado desta aplicação está fora do esperado. Ela ficou fora dos totais. Confira o cadastro.",
+        "why": "Valores como taxa negativa demais ou valor aplicado gigantesco impedem um cálculo confiável.",
+    } for it in errors]
     if not items:
         return {"patrimonio": 0, "investido": 0, "rentabilidade_pct": 0, "cdi_periodo_pct": 0, "ipca_periodo_pct": 0,
-                "superou_cdi": None, "superou_ipca": None, "alocacao": [], "ativos": [], "diversificacao": diversification([]),
-                "alertas": []}
+                "superou_cdi": None, "superou_ipca": None, "alocacao": [], "ativos": errors, "diversificacao": diversification([]),
+                "alertas": error_alerts}
 
     df = pd.DataFrame(items)
     total = float(df["current"].sum())
@@ -130,7 +171,7 @@ def build_dashboard(assets: list[dict], cdi: list, ipca: list, prices: dict, tod
         "superou_cdi": ret > cdi_w,
         "superou_ipca": ret > ipca_w,
         "alocacao": alocacao,
-        "ativos": [dict(it, peso_pct=round(it["current"] / total * 100, 1)) for it in items],
+        "ativos": [dict(it, peso_pct=round(it["current"] / total * 100, 1)) for it in items] + errors,
         "diversificacao": diversification(weights),
-        "alertas": alerts(items, total, today, limit, days),
+        "alertas": error_alerts + alerts(items, total, today, limit, days),
     }

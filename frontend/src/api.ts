@@ -34,7 +34,14 @@ export interface Dashboard {
   superou_cdi: boolean | null;
   superou_ipca: boolean | null;
   alocacao: { classe: string; valor: number; pct: number }[];
-  ativos: (Asset & { current: number; return_pct: number; peso_pct: number; class_label: string; quote_missing: boolean })[];
+  ativos: (Asset & {
+    current: number | null;
+    return_pct: number | null;
+    peso_pct: number | null;
+    class_label: string;
+    quote_missing: boolean;
+    calc_error?: boolean; // B2: dados inválidos – fica fora dos totais
+  })[];
   diversificacao: { score: number; band: string; text: string };
   alertas: Alerta[];
   aviso: string;
