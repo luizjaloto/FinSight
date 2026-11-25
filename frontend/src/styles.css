@@ -4,9 +4,10 @@
   --primaria: #4f46e5;
   --primaria-2: #7c3aed;
   --primaria-suave: #eef0ff;
-  --acento: #f97316;
-  --teal: #0d9488;
-  --rosa: #db2777;
+  --sobre-primaria: #ffffff;
+  --acento: #9a3412;
+  --teal: #0f766e;
+  --rosa: #be185d;
   --verde: #15803d;
   --verde-suave: #e8f7ee;
   --vermelho: #c2410c;
@@ -17,14 +18,15 @@
   --texto: #111827;
   --suave: #545c6b;
   --borda: #e3e7ef;
+  --borda-campo: #8a93a6;
   --sombra: 0 1px 2px rgba(17, 24, 39, 0.04), 0 8px 24px rgba(17, 24, 39, 0.06);
   --sombra-forte: 0 12px 32px rgba(79, 70, 229, 0.25);
   --raio: 16px;
-  --grad: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #db2777 100%);
+  --grad: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #be185d 100%);
   --c1: #4f46e5;
-  --c2: #f97316;
-  --c3: #0d9488;
-  --c4: #db2777;
+  --c2: #9a3412;
+  --c3: #0f766e;
+  --c4: #be185d;
   color-scheme: light;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 16px;
@@ -36,6 +38,7 @@
   --primaria: #8b85ff;
   --primaria-2: #a78bfa;
   --primaria-suave: #24224a;
+  --sobre-primaria: #0e1020;
   --acento: #fb923c;
   --teal: #2dd4bf;
   --rosa: #f472b6;
@@ -49,6 +52,7 @@
   --texto: #eef0fb;
   --suave: #a6adc4;
   --borda: #2a2f4a;
+  --borda-campo: #646d92;
   --sombra: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
   --c1: #8b85ff;
   --c2: #fb923c;
@@ -162,10 +166,10 @@ footer { font-size: 0.85rem; color: var(--suave); text-align: center; padding: 2
 .hero::before { width: 320px; height: 320px; right: -80px; top: -120px; }
 .hero::after { width: 200px; height: 200px; right: 180px; bottom: -110px; }
 .hero > * { position: relative; }
-.eyebrow { margin: 0; font-weight: 600; opacity: 0.9; display: flex; align-items: center; gap: 8px; }
-.hero h1 { font-size: 1rem; font-weight: 600; opacity: 0.9; margin-top: 14px; }
+.eyebrow { margin: 0; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.hero h1 { font-size: 1rem; font-weight: 600; margin-top: 14px; }
 .hero-value { font-size: clamp(2.2rem, 5vw, 3.2rem); font-weight: 800; letter-spacing: -0.02em; margin: 4px 0 10px; }
-.hero-sub { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; opacity: 0.95; }
+.hero-sub { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .hero-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: center; min-width: min(100%, 340px); }
 .chip-hero { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.2);
   font-weight: 700; }
@@ -206,7 +210,7 @@ footer { font-size: 0.85rem; color: var(--suave); text-align: center; padding: 2
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip { border: 1px solid var(--borda); background: var(--cartao); color: var(--texto); padding: 7px 14px; border-radius: 999px; font: inherit;
   font-weight: 600; cursor: pointer; min-height: 36px; }
-.chip[aria-pressed="true"] { background: var(--primaria); color: #fff; border-color: var(--primaria); }
+.chip[aria-pressed="true"] { background: var(--primaria); color: var(--sobre-primaria); border-color: var(--primaria); }
 .chip:hover { border-color: var(--primaria); }
 
 /* ---------- gráficos ---------- */
@@ -240,7 +244,7 @@ tr:hover td, tr:hover tbody th, tbody tr:hover th { background: color-mix(in srg
 
 /* ---------- formulários ---------- */
 label { display: flex; flex-direction: column; gap: 6px; font-weight: 650; font-size: 0.95rem; }
-input, select { font: inherit; padding: 11px 14px; border: 1px solid var(--borda); border-radius: 12px; background: var(--cartao);
+input, select { font: inherit; padding: 11px 14px; border: 1px solid var(--borda-campo); border-radius: 12px; background: var(--cartao);
   color: var(--texto); width: 100%; min-height: 44px; font-weight: 500; }
 input:focus, select:focus { outline: none; border-color: var(--primaria); box-shadow: 0 0 0 4px var(--primaria-suave); }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -320,7 +324,7 @@ input:focus, select:focus { outline: none; border-color: var(--primaria); box-sh
 /* ---------- ícone de ajuda ---------- */
 .help { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; color: var(--primaria);
   background: var(--primaria-suave); text-decoration: none; }
-.help:hover { background: var(--primaria); color: #fff; }
+.help:hover { background: var(--primaria); color: var(--sobre-primaria); }
 
 /* ---------- notificações ---------- */
 .toasts { position: fixed; right: 16px; bottom: 16px; z-index: 60; display: grid; gap: 10px; }
