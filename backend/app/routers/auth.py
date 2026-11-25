@@ -7,7 +7,7 @@ from pymongo.errors import DuplicateKeyError
 
 from ..db import get_db
 from ..models import LoginIn, RegisterIn, TokenOut
-from ..security import PasswordTooLong, check_password, create_token, current_user_id, hash_password
+from ..security import PasswordTooLong, create_token, current_user_id, hash_password, verify_login
 
 router = APIRouter(prefix="/auth", tags=["autenticação"])
 
@@ -40,8 +40,9 @@ def register(body: RegisterIn):
 @router.post("/login", response_model=TokenOut)
 def login(body: LoginIn):
     user = get_db().users.find_one({"email": body.email.lower()})
-    # mensagem genérica: não revela se o erro foi no e-mail ou na senha (RF02)
-    if not user or not check_password(body.password, user["password_hash"]):
+    # mensagem genérica e tempo constante: não revela se o e-mail existe (RF02, S1)
+    ok = verify_login(user, body.password)  # roda o bcrypt mesmo se o e-mail não existir
+    if user is None or not ok:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "E-mail ou senha incorretos.")
     return TokenOut(access_token=create_token(user["_id"]), name=user["name"])
 

@@ -34,6 +34,17 @@ def check_password(password: str, hashed: str) -> bool:
         return False
 
 
+# Hash fictício com o mesmo custo dos hashes reais. Quando o e-mail não existe, a senha é verificada contra ele,
+# para que a resposta demore o mesmo tempo e não revele quais e-mails têm conta (S1).
+_DUMMY_HASH = bcrypt.hashpw(b"finsight-hash-ficticio-para-tempo-constante", bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_login(user: dict | None, password: str) -> bool:
+    """Sempre executa exatamente uma verificação bcrypt, exista o usuário ou não."""
+    ok = check_password(password, user["password_hash"] if user else _DUMMY_HASH)
+    return user is not None and ok
+
+
 def create_token(user_id: str) -> str:
     now = datetime.now(timezone.utc)
     payload = {"sub": user_id, "iat": now, "exp": now + timedelta(minutes=settings.jwt_minutes)}
