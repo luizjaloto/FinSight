@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api, type AssetType, type Dashboard as D } from "../api";
 import AlertCard from "../components/AlertCard";
 import Help from "../components/Help";
@@ -9,6 +9,7 @@ import { useToast } from "../components/Toast";
 import { brl, compareText, pct } from "../format";
 
 const CORES = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)"];
+const CORES_COMPARACAO = ["var(--primaria)", "var(--suave)", "var(--borda-campo)"];
 const ICONE_TIPO: Record<AssetType, IconName> = { renda_fixa: "predio", acao: "grafico", fii: "carteira" };
 type Filtro = "todos" | AssetType;
 const FILTROS: { id: Filtro; rotulo: string }[] = [
@@ -180,14 +181,20 @@ export default function Dashboard() {
         {vista === "grafico" ? (
           <div role="img" aria-label={comparacao.map((c) => `${c.nome}: ${pct(c.valor)}`).join("; ")}>
             <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={comparacao} margin={{ left: 0, right: 8, top: 8 }}>
+              <BarChart data={comparacao} margin={{ left: 0, right: 8, top: 28 }}>
                 <CartesianGrid vertical={false} stroke="var(--borda)" />
                 <XAxis dataKey="nome" tick={{ fontSize: 14, fill: "var(--suave)" }} axisLine={false} tickLine={false} />
                 <YAxis tickFormatter={(v) => `${v}%`} tick={{ fontSize: 13, fill: "var(--suave)" }} width={48} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(v: number) => pct(v)} cursor={{ fill: "var(--primaria-suave)" }}
                          contentStyle={{ borderRadius: 12, border: "1px solid var(--borda)", background: "var(--cartao)", color: "var(--texto)" }} />
                 <Bar dataKey="valor" radius={[10, 10, 0, 0]} maxBarSize={90}>
-                  {comparacao.map((_, i) => <Cell key={i} fill={CORES[i]} />)}
+                  {comparacao.map((_, i) => <Cell key={i} fill={CORES_COMPARACAO[i]} />)}
+                  <LabelList
+                    dataKey="valor"
+                    position="top"
+                    formatter={(v: unknown) => (typeof v === "number" ? pct(v) : String(v ?? ""))}
+                    style={{ fill: "var(--texto)", fontSize: 14, fontWeight: 700 }}
+                  />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
