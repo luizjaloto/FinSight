@@ -18,7 +18,7 @@ export interface Asset {
 }
 
 export interface Alerta {
-  kind: "concentracao" | "vencimento" | "cotacao";
+  kind: "concentracao" | "vencimento" | "cotacao" | "erro_calculo" | "indicadores";
   level: "atencao" | "info";
   title: string;
   text: string;
@@ -44,6 +44,7 @@ export interface Dashboard {
   })[];
   diversificacao: { score: number; band: string; text: string };
   alertas: Alerta[];
+  indicadores_desatualizados?: boolean; // B3: CDI/IPCA vindos do cache porque o Banco Central não respondeu
   aviso: string;
 }
 

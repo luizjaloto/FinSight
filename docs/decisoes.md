@@ -19,3 +19,15 @@ Valores normalizados: `1,05` no campo "% do CDI" continua sendo lido como 105% (
 
 Dados antigos que violem esses limites (gravados antes da validação) não derrubam o painel: o ativo aparece como
 "erro de cálculo", fica fora dos totais e gera um aviso para o usuário revisar o cadastro.
+
+## B3 – Histórico do CDI e do IPCA
+
+- A série é buscada desde a aplicação mais antiga da carteira, menos 45 dias de margem (feriados e mês incompleto do IPCA).
+  Sem aplicações, busca 400 dias (o suficiente para os 12 meses do resumo).
+- O SGS recusa com HTTP 406 consultas acima de **10 anos** em séries diárias. Isso foi verificado diretamente na API em
+  24/11/2026 (mensagem: "O sistema aceita uma janela de consulta de, no máximo, 10 anos em séries de periodicidade diária").
+  A busca usa janelas de 9 anos para ter folga. A série mensal do IPCA (433) aceitou 16 anos numa consulta só, mas usa a mesma janela.
+- Cache por faixa: cada série guarda `covers_from` (primeira data coberta). Cache com menos de 12 horas que já cobre a faixa
+  é usado sem consultar a API.
+- Se a API falhar, o painel usa o último cache e mostra um aviso ("Não conseguimos atualizar o CDI e o IPCA agora").
+  Se não houver cache nenhum, responde 503.

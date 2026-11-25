@@ -42,7 +42,8 @@ def client(monkeypatch, series):
 
     dbmod._client.cache_clear()
     cdi, ipca = series
-    monkeypatch.setattr(bcb, "get_series", lambda db, name, years=3, **kw: cdi if name == "cdi" else ipca)
+    monkeypatch.setattr(bcb, "get_series",
+                        lambda db, name, **kw: bcb.Series(cdi if name == "cdi" else ipca, (cdi if name == "cdi" else ipca)[0][0]))
     monkeypatch.setattr(quotes, "fetch_quote", lambda ticker: {"PETR4": 38.0, "HGLG11": 160.0}.get(ticker))
     from app.main import app
 
