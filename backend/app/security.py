@@ -8,18 +8,29 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .config import settings
 from .db import get_db
+from .models import MAX_PASSWORD_BYTES, MSG_SENHA_LONGA
 
 _bearer = HTTPBearer(auto_error=False)
 
 
+class PasswordTooLong(ValueError):
+    """Senha com mais bytes do que o bcrypt aceita (B1)."""
+
+
 def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    raw = password.encode("utf-8")
+    if len(raw) > MAX_PASSWORD_BYTES:
+        raise PasswordTooLong(MSG_SENHA_LONGA)
+    try:
+        return bcrypt.hashpw(raw, bcrypt.gensalt()).decode("utf-8")
+    except ValueError as e:  # qualquer outra recusa do bcrypt vira erro de domínio, nunca 500
+        raise PasswordTooLong(MSG_SENHA_LONGA) from e
 
 
 def check_password(password: str, hashed: str) -> bool:
     try:
         return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
-    except ValueError:
+    except ValueError:  # senha longa demais ou hash inválido: tratado como senha incorreta
         return False
 
 

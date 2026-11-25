@@ -7,7 +7,7 @@ from pymongo.errors import DuplicateKeyError
 
 from ..db import get_db
 from ..models import LoginIn, RegisterIn, TokenOut
-from ..security import check_password, create_token, current_user_id, hash_password
+from ..security import PasswordTooLong, check_password, create_token, current_user_id, hash_password
 
 router = APIRouter(prefix="/auth", tags=["autenticação"])
 
@@ -17,11 +17,15 @@ def register(body: RegisterIn):
     if not body.accept_terms:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "É preciso aceitar o termo de privacidade para criar a conta.")
     db = get_db()
+    try:
+        password_hash = hash_password(body.password)
+    except PasswordTooLong as e:  # o modelo já valida; aqui é defesa em profundidade
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
     user = {
         "_id": uuid.uuid4().hex,
         "name": body.name.strip(),
         "email": body.email.lower(),
-        "password_hash": hash_password(body.password),
+        "password_hash": password_hash,
         "terms_accepted_at": datetime.now(timezone.utc),
         "created_at": datetime.now(timezone.utc),
     }

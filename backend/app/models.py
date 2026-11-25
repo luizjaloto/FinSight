@@ -7,12 +7,24 @@ from pydantic import BaseModel, EmailStr, Field, field_validator, model_validato
 AssetType = Literal["renda_fixa", "acao", "fii"]
 Indexer = Literal["cdi", "ipca"]
 
+# O bcrypt só considera os primeiros 72 BYTES da senha (o bcrypt 5 recusa o excedente com erro).
+MAX_PASSWORD_BYTES = 72
+MSG_SENHA_LONGA = (f"A senha pode ter no máximo {MAX_PASSWORD_BYTES} bytes: cerca de 72 letras sem acento. "
+                   "Letras com acento ocupam 2 bytes e emojis, 4.")
+
 
 class RegisterIn(BaseModel):
     name: str = Field(min_length=2, max_length=80)
     email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=8)
     accept_terms: bool
+
+    @field_validator("password")
+    @classmethod
+    def _password_bytes(cls, v: str) -> str:
+        if len(v.encode("utf-8")) > MAX_PASSWORD_BYTES:
+            raise ValueError(MSG_SENHA_LONGA)
+        return v
 
 
 class LoginIn(BaseModel):
