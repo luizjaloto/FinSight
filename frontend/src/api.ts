@@ -106,4 +106,5 @@ export const api = {
     });
   },
   glossary: () => request<{ termo: string; definicao: string }[]>("/glossario"),
+  exportData: () => request<unknown>("/auth/me/export"),
 };
