@@ -47,7 +47,8 @@ def verify_login(user: dict | None, password: str) -> bool:
 
 def create_token(user_id: str) -> str:
     now = datetime.now(timezone.utc)
-    payload = {"sub": user_id, "iat": now, "exp": now + timedelta(minutes=settings.jwt_minutes)}
+    payload = {"sub": user_id, "iat": now, "exp": now + timedelta(minutes=settings.jwt_minutes),
+               "iss": settings.jwt_issuer, "aud": settings.jwt_audience}
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
@@ -55,7 +56,10 @@ def current_user_id(creds: HTTPAuthorizationCredentials | None = Depends(_bearer
     if creds is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Faça login para continuar.")
     try:
-        payload = jwt.decode(creds.credentials, settings.jwt_secret, algorithms=["HS256"])
+        # S3: exp, iat, sub, iss e aud são obrigatórios; sem eles o token seria eterno ou de outro sistema
+        payload = jwt.decode(creds.credentials, settings.jwt_secret, algorithms=["HS256"],
+                             audience=settings.jwt_audience, issuer=settings.jwt_issuer,
+                             options={"require": ["exp", "iat", "sub", "iss", "aud"]})
     except jwt.PyJWTError:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sessão expirada. Faça login novamente.")
     user_id = payload.get("sub")

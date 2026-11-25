@@ -11,6 +11,8 @@ numpy>=2.0
 # fuso America/Sao_Paulo para zoneinfo no Windows (B9); no Linux também evita depender do pacote do sistema
 tzdata==2026.6
 email-validator>=2.2
+# configuração validada na subida (S3): recusa JWT_SECRET fraco em produção
+pydantic-settings==2.16.3
 
 # testes
 pytest>=8.3

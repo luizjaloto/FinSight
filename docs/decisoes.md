@@ -60,3 +60,15 @@ Dados antigos que violem esses limites (gravados antes da validação) não derr
   configurar `TRUSTED_PROXIES` com o IP do container do nginx; isso depende do item S6 (proxy de /api), fora deste pacote.
 - Limitação conhecida: o contador não é estritamente atômico (leitura e escrita separadas). Em rajadas simultâneas, algumas
   tentativas a mais podem passar antes do bloqueio. Aceitável para o volume do projeto; registrado para revisão.
+
+## S3 – Configuração e JWT
+
+- A configuração usa `pydantic-settings` (dependência nova, versão fixa 2.16.3) e é validada na subida.
+  Com `ENV=production`, a API **não sobe** se `JWT_SECRET` for o valor padrão, um valor que já apareceu em arquivo de
+  exemplo, ou tiver menos de 32 caracteres. Em `development` (padrão) o valor padrão continua aceito, para facilitar o
+  desenvolvimento local.
+- Tokens agora levam `iss` (`finsight-api`) e `aud` (`finsight-web`), e a validação exige `exp`, `iat`, `sub`, `iss` e `aud`.
+  Token sem validade, de outro emissor ou para outro público recebe 401.
+- Efeito colateral esperado: tokens emitidos pela v0.4.0 (sem `iss`/`aud`) deixam de valer; o usuário só precisa entrar de novo.
+- `docker-compose.yml` não tem mais valor padrão para `JWT_SECRET` (`${JWT_SECRET:?...}`) e roda a API com `ENV=production`.
+  A variável fica no arquivo `.env` da raiz (modelo em `.env.example`).
