@@ -8,7 +8,7 @@ LGPD: as chaves guardam um hash do e-mail e do IP, nunca o valor em texto.
 import hashlib
 import math
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from .. import clock
 
@@ -56,9 +56,8 @@ def client_ip(request, trusted: tuple = ()) -> str:
 
 
 def _aware(dt: datetime) -> datetime:
-    from datetime import timezone
 
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
 def ensure_allowed(db, keys: list[str]) -> None:

@@ -30,7 +30,7 @@ def test_importa_linhas_validas_e_aponta_recusadas():
 
 def test_quantidade_fracionaria_de_fii():
     """Falha original do T05 (21/11): FII com quantidade fracionária era recusado."""
-    fii = [a for a in parse_b3_csv(CSV_B3.encode("utf-8"), HOJE)["assets"] if a["ticker"] == "HGLG11"][0]
+    fii = next(a for a in parse_b3_csv(CSV_B3.encode("utf-8"), HOJE)["assets"] if a["ticker"] == "HGLG11")
     assert fii["type"] == "fii" and fii["quantity"] == 0.5 and fii["invested"] == 80.0
 
 

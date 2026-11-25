@@ -1,5 +1,6 @@
 """Senhas com bcrypt e autenticação com JWT (RNF02)."""
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+from typing import Annotated
 
 import bcrypt
 import jwt
@@ -46,13 +47,13 @@ def verify_login(user: dict | None, password: str) -> bool:
 
 
 def create_token(user_id: str) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {"sub": user_id, "iat": now, "exp": now + timedelta(minutes=settings.jwt_minutes),
                "iss": settings.jwt_issuer, "aud": settings.jwt_audience}
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
-def current_user_id(creds: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> str:
+def current_user_id(creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)]) -> str:
     if creds is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Faça login para continuar.")
     try:

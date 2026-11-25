@@ -2,7 +2,7 @@
 import os
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import jwt
@@ -34,7 +34,7 @@ def test_producao_aceita_segredo_forte_e_desenvolvimento_aceita_o_padrao():
 
 def test_app_nao_sobe_em_producao_com_segredo_fraco():
     env = {**os.environ, "ENV": "production", "JWT_SECRET": "fraco", "MONGO_URI": "mongomock://"}
-    r = subprocess.run([sys.executable, "-c", "import app.main"], cwd=BACKEND, env=env, capture_output=True, text=True)
+    r = subprocess.run([sys.executable, "-c", "import app.main"], cwd=BACKEND, env=env, capture_output=True, text=True, check=False)
     assert r.returncode != 0 and "JWT_SECRET" in r.stderr
 
 
@@ -51,7 +51,7 @@ def _token(payload):
 def _base(uid):
     from app.config import settings
 
-    agora = datetime.now(timezone.utc)
+    agora = datetime.now(UTC)
     return {"sub": uid, "iat": agora, "exp": agora + timedelta(minutes=5),
             "iss": settings.jwt_issuer, "aud": settings.jwt_audience}
 

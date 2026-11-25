@@ -1,15 +1,22 @@
 """Cadastro, login e exclusão de conta (RF01, RF02, RNF03)."""
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pymongo.errors import DuplicateKeyError
 
 from ..config import settings
 from ..db import get_db
-from ..services import rate_limit
 from ..models import LoginIn, RegisterIn, TokenOut
-from ..security import PasswordTooLong, create_token, current_user_id, hash_password, verify_login
+from ..security import (
+    PasswordTooLong,
+    create_token,
+    current_user_id,
+    hash_password,
+    verify_login,
+)
+from ..services import rate_limit
 
 router = APIRouter(prefix="/auth", tags=["autenticação"])
 
@@ -37,13 +44,13 @@ def register(body: RegisterIn, request: Request):
         password_hash = hash_password(body.password)
     except PasswordTooLong as e:  # o modelo já valida; aqui é defesa em profundidade
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
-    user = {
+    user: dict[str, Any] = {
         "_id": uuid.uuid4().hex,
         "name": body.name.strip(),
         "email": body.email.lower(),
         "password_hash": password_hash,
-        "terms_accepted_at": datetime.now(timezone.utc),
-        "created_at": datetime.now(timezone.utc),
+        "terms_accepted_at": datetime.now(UTC),
+        "created_at": datetime.now(UTC),
     }
     try:
         db.users.insert_one(user)
@@ -73,23 +80,30 @@ def login(body: LoginIn, request: Request):
     return TokenOut(access_token=create_token(user["_id"]), name=user["name"])
 
 
+def _user_or_401(db, user_id: str) -> dict[str, Any]:
+    u = db.users.find_one({"_id": user_id}, {"password_hash": 0})
+    if u is None:  # conta excluída entre a validação do token e esta leitura
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Usuário não encontrado.")
+    return u
+
+
 @router.get("/me")
-def me(user_id: str = Depends(current_user_id)):
-    u = get_db().users.find_one({"_id": user_id}, {"password_hash": 0})
+def me(user_id: Annotated[str, Depends(current_user_id)]):
+    u = _user_or_401(get_db(), user_id)
     return {"id": u["_id"], "name": u["name"], "email": u["email"]}
 
 
 @router.get("/me/export")
-def export_data(user_id: str = Depends(current_user_id)):
+def export_data(user_id: Annotated[str, Depends(current_user_id)]):
     """Exporta os dados do usuário (direito de acesso – LGPD)."""
     db = get_db()
-    u = db.users.find_one({"_id": user_id}, {"password_hash": 0})
+    u = _user_or_401(db, user_id)
     p = db.portfolios.find_one({"user_id": user_id}, {"_id": 0})
     return {"usuario": {"nome": u["name"], "email": u["email"]}, "carteira": (p or {}).get("assets", [])}
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
-def delete_account(user_id: str = Depends(current_user_id)):
+def delete_account(user_id: Annotated[str, Depends(current_user_id)]):
     """Remove o usuário e TODOS os seus documentos (correção do teste T10: alertas incluídos)."""
     db = get_db()
     db.portfolios.delete_many({"user_id": user_id})

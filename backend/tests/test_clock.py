@@ -1,10 +1,10 @@
 """B9 – a data do sistema é a de Brasília, não a do servidor (UTC)."""
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pytest
 
 # 10/03/2027 às 22:54 em Brasília = 11/03/2027 às 01:54 em UTC
-RELOGIO_UTC = datetime(2027, 3, 11, 1, 54, tzinfo=timezone.utc)
+RELOGIO_UTC = datetime(2027, 3, 11, 1, 54, tzinfo=UTC)
 
 
 @pytest.fixture

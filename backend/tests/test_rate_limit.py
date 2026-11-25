@@ -1,5 +1,5 @@
 """S2 – limite de tentativas em /auth/login e /auth/register, por e-mail e por IP."""
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -11,7 +11,7 @@ EMAIL = "teste@finsight.app"
 @pytest.fixture
 def relogio(monkeypatch):
     """Relógio controlável: começa num instante fixo e avança quando o teste pede."""
-    estado = {"agora": datetime(2026, 11, 24, 15, 0, tzinfo=timezone.utc)}
+    estado = {"agora": datetime(2026, 11, 24, 15, 0, tzinfo=UTC)}
     monkeypatch.setattr(clock, "_now", lambda: estado["agora"])
 
     def avancar(segundos):

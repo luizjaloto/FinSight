@@ -6,7 +6,7 @@ import pytest
 
 from app.services import analytics
 
-PALAVRAS_DE_RECOMENDACAO = re.compile(r"\b(resgat\w*|reaplic\w*|reinvist\w*|invista|compre|venda|vender|comprar|mantenha|manter)\b", re.I)
+PALAVRAS_DE_RECOMENDACAO = re.compile(r"\b(resgat\w*|reaplic\w*|reinvist\w*|invista|compre|venda|vender|comprar|mantenha|manter)\b", re.IGNORECASE)
 
 
 @pytest.fixture

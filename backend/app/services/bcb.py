@@ -5,7 +5,7 @@ Séries usadas:
   433 – IPCA, variação mensal (%)
 """
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 
@@ -31,7 +31,7 @@ class Series:
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _parse(rows: list[dict]) -> list[tuple[date, float]]:
@@ -88,7 +88,7 @@ def get_series(db, name: str, *, since: date, today: date) -> Series:
     if cached:
         updated = cached["updated_at"]
         if updated.tzinfo is None:
-            updated = updated.replace(tzinfo=timezone.utc)
+            updated = updated.replace(tzinfo=UTC)
         fresh = now - updated < timedelta(hours=CACHE_HOURS)
         if fresh and old_from is not None and old_from <= need_from:
             return Series(old_values, old_from)

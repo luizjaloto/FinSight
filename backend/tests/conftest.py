@@ -7,7 +7,7 @@ os.environ["MONGO_URI"] = "mongomock://"
 os.environ["JWT_SECRET"] = "chave-de-teste-com-pelo-menos-32-caracteres"
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import pytest  # noqa: E402
+import pytest
 
 
 def daily_cdi(days: int = 800, rate: float = 0.0004) -> list:

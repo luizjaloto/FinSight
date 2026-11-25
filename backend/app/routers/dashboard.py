@@ -1,5 +1,5 @@
 """Painel, indicadores do Banco Central e glossário (RF07, RF08, RF09, RF10)."""
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -75,7 +75,7 @@ def dashboard(user_id: str = Depends(current_user_id)):
         })
     db.alerts.delete_many({"user_id": user_id})
     if data["alertas"]:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         db.alerts.insert_many([dict(a, user_id=user_id, created_at=now) for a in data["alertas"]])
     data["cotacoes"] = quotes
     data["aviso"] = AVISO

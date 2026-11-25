@@ -6,7 +6,7 @@ Login: demo@finsight.app  /  senha: definida em DEMO_PASSWORD no .env (padrão: 
 import os
 import sys
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # permite: python scripts/seed_demo.py
@@ -29,7 +29,7 @@ def main() -> None:
     uid = uuid.uuid4().hex
     db.users.insert_one({"_id": uid, "name": "Roberto (demonstração)", "email": EMAIL,
                          "password_hash": hash_password(os.getenv("DEMO_PASSWORD", "Demo@2026")),
-                         "terms_accepted_at": datetime.now(timezone.utc), "created_at": datetime.now(timezone.utc)})
+                         "terms_accepted_at": datetime.now(UTC), "created_at": datetime.now(UTC)})
     today = today_br()
     d = lambda days: (today - timedelta(days=days)).isoformat()
     assets = [
