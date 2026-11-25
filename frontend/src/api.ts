@@ -18,7 +18,7 @@ export interface Asset {
 }
 
 export interface Alerta {
-  kind: "concentracao" | "vencimento" | "cotacao";
+  kind: "concentracao" | "vencimento" | "vencido" | "cotacao" | "erro_calculo" | "indicadores";
   level: "atencao" | "info";
   title: string;
   text: string;
@@ -34,9 +34,18 @@ export interface Dashboard {
   superou_cdi: boolean | null;
   superou_ipca: boolean | null;
   alocacao: { classe: string; valor: number; pct: number }[];
-  ativos: (Asset & { current: number; return_pct: number; peso_pct: number; class_label: string; quote_missing: boolean })[];
+  ativos: (Asset & {
+    current: number | null;
+    return_pct: number | null;
+    peso_pct: number | null;
+    class_label: string;
+    quote_missing: boolean;
+    calc_error?: boolean; // B2: dados inválidos – fica fora dos totais
+    status?: "ativo" | "vencido" | "erro"; // B4: renda fixa vencida para de render no vencimento
+  })[];
   diversificacao: { score: number; band: string; text: string };
   alertas: Alerta[];
+  indicadores_desatualizados?: boolean; // B3: CDI/IPCA vindos do cache porque o Banco Central não respondeu
   aviso: string;
 }
 

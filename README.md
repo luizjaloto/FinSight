@@ -67,6 +67,11 @@ finsight/
 
 Requisitos: Docker Desktop.
 
+1. Copie `.env.example` para `.env` e preencha `JWT_SECRET` com um texto aleatório de pelo menos 32 caracteres.
+   Para gerar um: `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
+   Sem isso o compose para com erro, de propósito: a API roda com `ENV=production` e não aceita chave fraca.
+2. Suba os serviços e crie o usuário de demonstração:
+
 ```bash
 docker compose up --build
 docker compose exec backend python scripts/seed_demo.py
@@ -87,7 +92,7 @@ cd backend
 python -m venv .venv
 .venv\Scripts\activate          # Windows  (Linux/macOS: source .venv/bin/activate)
 pip install -r requirements.txt
-copy .env.example .env          # Linux/macOS: cp .env.example .env  – e ajuste MONGO_URI e JWT_SECRET
+copy .env.example .env          # Linux/macOS: cp .env.example .env  – ajuste MONGO_URI e preencha JWT_SECRET
 python scripts/seed_demo.py
 uvicorn app.main:app --reload
 ```

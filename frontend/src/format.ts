@@ -19,3 +19,13 @@ export function compareText(carteira: number, referencia: number, nome: string):
     ? `Sua carteira rendeu ${pct(diff)} a mais que o ${nome} no mesmo período.`
     : `Sua carteira rendeu ${pct(-diff)} a menos que o ${nome} no mesmo período.`;
 }
+
+/**
+ * Data de hoje no fuso do usuário, no formato AAAA-MM-DD (B9).
+ * Não usar toISOString(): ele converte para UTC e, depois das 21h em Brasília, devolve o dia seguinte.
+ */
+export function hojeLocal(agora: Date = new Date()): string {
+  const d = String(agora.getDate()).padStart(2, "0");
+  const m = String(agora.getMonth() + 1).padStart(2, "0");
+  return `${agora.getFullYear()}-${m}-${d}`;
+}

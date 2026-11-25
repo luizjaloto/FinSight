@@ -7,7 +7,7 @@ os.environ["MONGO_URI"] = "mongomock://"
 os.environ["JWT_SECRET"] = "chave-de-teste-com-pelo-menos-32-caracteres"
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import pytest  # noqa: E402
+import pytest
 
 
 def daily_cdi(days: int = 800, rate: float = 0.0004) -> list:
@@ -42,7 +42,8 @@ def client(monkeypatch, series):
 
     dbmod._client.cache_clear()
     cdi, ipca = series
-    monkeypatch.setattr(bcb, "get_series", lambda db, name, years=3: cdi if name == "cdi" else ipca)
+    monkeypatch.setattr(bcb, "get_series",
+                        lambda db, name, **kw: bcb.Series(cdi if name == "cdi" else ipca, (cdi if name == "cdi" else ipca)[0][0]))
     monkeypatch.setattr(quotes, "fetch_quote", lambda ticker: {"PETR4": 38.0, "HGLG11": 160.0}.get(ticker))
     from app.main import app
 

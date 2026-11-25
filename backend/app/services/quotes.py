@@ -3,7 +3,7 @@
 Sem token, a brapi libera apenas alguns códigos de teste; com BRAPI_TOKEN no .env, todos.
 Se a cotação não estiver disponível, o painel usa o preço médio e avisa o usuário.
 """
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
@@ -28,12 +28,12 @@ def fetch_quote(ticker: str) -> float | None:
 
 def get_quote(db, ticker: str) -> dict:
     """Retorna {'price': float | None, 'as_of': iso | None, 'source': str}."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cached = db.quotes_cache.find_one({"ticker": ticker})
     if cached:
         at = cached["as_of"]
         if at.tzinfo is None:
-            at = at.replace(tzinfo=timezone.utc)
+            at = at.replace(tzinfo=UTC)
         if now - at < timedelta(minutes=CACHE_MINUTES):
             return {"price": cached["price"], "as_of": at.isoformat(), "source": "cache"}
     price = fetch_quote(ticker)

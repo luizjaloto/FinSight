@@ -1,9 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
 import { api, type Asset, type AssetType } from "../api";
 import Help from "../components/Help";
-import { brl, parseBR } from "../format";
+import { brl, hojeLocal, parseBR } from "../format";
 
-const hoje = () => new Date().toISOString().slice(0, 10);
+const hoje = () => hojeLocal();
 const vazio = { type: "renda_fixa" as AssetType, name: "", ticker: "", invested: "", start_date: hoje(), indexer: "cdi", rate: "", maturity: "", quantity: "", avg_price: "" };
 
 export default function Carteira() {

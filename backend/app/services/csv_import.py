@@ -39,8 +39,8 @@ def _find(cols: list[str], *keys: str) -> int | None:
     return None
 
 
-def parse_b3_csv(content: bytes, today: date | None = None) -> dict:
-    today = today or date.today()
+def parse_b3_csv(content: bytes, today: date) -> dict:
+    """`today` é a data de Brasília, injetada pela rota (B9)."""
     text = content.decode("utf-8-sig", errors="replace")
     sample = text[:2048]
     delim = ";" if sample.count(";") >= sample.count(",") else ","
