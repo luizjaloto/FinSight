@@ -18,7 +18,7 @@ export interface Asset {
 }
 
 export interface Alerta {
-  kind: "concentracao" | "vencimento" | "cotacao" | "erro_calculo" | "indicadores";
+  kind: "concentracao" | "vencimento" | "vencido" | "cotacao" | "erro_calculo" | "indicadores";
   level: "atencao" | "info";
   title: string;
   text: string;
@@ -41,6 +41,7 @@ export interface Dashboard {
     class_label: string;
     quote_missing: boolean;
     calc_error?: boolean; // B2: dados inválidos – fica fora dos totais
+    status?: "ativo" | "vencido" | "erro"; // B4: renda fixa vencida para de render no vencimento
   })[];
   diversificacao: { score: number; band: string; text: string };
   alertas: Alerta[];

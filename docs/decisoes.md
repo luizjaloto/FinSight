@@ -31,3 +31,13 @@ Dados antigos que violem esses limites (gravados antes da validação) não derr
   é usado sem consultar a API.
 - Se a API falhar, o painel usa o último cache e mostra um aviso ("Não conseguimos atualizar o CDI e o IPCA agora").
   Se não houver cache nenhum, responde 503.
+
+## B4 – Renda fixa vencida **[validar com o docente]**
+
+- O valor de uma renda fixa para de acumular na data do vencimento. A comparação com o CDI e o IPCA desse ativo também
+  usa o período da aplicação até o vencimento, para continuar sendo uma comparação justa.
+- O ativo ganha status `vencido` e um aviso próprio, que só informa que o prazo terminou. O sistema **não** presume o que
+  aconteceu depois (resgate automático, reaplicação) e não sugere o que fazer.
+- Dúvida para validar: depois do vencimento, o dinheiro normalmente volta para a conta do associado. Manter o ativo vencido
+  somando no patrimônio é a opção conservadora (o dinheiro continua existindo); o docente pode preferir retirá-lo dos totais.
+- O cálculo do IPCA+ continua usando dias corridos/365 até o vencimento; a troca por 252 dias úteis é o item D3, fora deste pacote.

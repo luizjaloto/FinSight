@@ -111,7 +111,7 @@ export default function Dashboard() {
                   </tr>
                 ) : (
                   <tr key={a.id}>
-                    <td>{a.ticker ?? a.name}{a.quote_missing && " *"}</td>
+                    <td>{a.ticker ?? a.name}{a.status === "vencido" && " (vencido)"}{a.quote_missing && " *"}</td>
                     <td>{a.class_label}</td>
                     <td>{brl(a.invested)}</td>
                     <td>{brl(a.current)}</td>

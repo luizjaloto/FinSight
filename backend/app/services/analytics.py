@@ -12,19 +12,30 @@ from . import bcb
 CLASS_LABELS = {"renda_fixa": "Renda fixa", "acao": "Ações", "fii": "Fundos imobiliários"}
 
 
+def _as_date(v) -> date:
+    return v if isinstance(v, date) else date.fromisoformat(str(v))
+
+
 def value_asset(asset: dict, cdi: list, ipca: list, price: float | None, today: date) -> dict:
-    """Valor atual de uma aplicação e os benchmarks (CDI e IPCA) no mesmo período."""
-    start = asset["start_date"] if isinstance(asset["start_date"], date) else date.fromisoformat(asset["start_date"])
+    """Valor atual de uma aplicação e os benchmarks (CDI e IPCA) no mesmo período.
+
+    Renda fixa vencida para de render na data do vencimento (B4): o valor e a comparação com CDI/IPCA
+    usam o período da aplicação até o vencimento.
+    """
+    start = _as_date(asset["start_date"])
     invested = float(asset["invested"])
-    cdi_period = bcb.accumulated(cdi, start, today)
-    ipca_period = bcb.accumulated_monthly(ipca, start, today)
+    maturity = _as_date(asset["maturity"]) if asset.get("maturity") else None
+    end = min(today, maturity) if maturity and asset["type"] == "renda_fixa" else today
+    status = "vencido" if maturity and asset["type"] == "renda_fixa" and maturity < today else "ativo"
+    cdi_period = bcb.accumulated(cdi, start, end)
+    ipca_period = bcb.accumulated_monthly(ipca, start, end)
     quote_missing = False
 
     if asset["type"] == "renda_fixa":
         if asset.get("indexer") == "cdi":
-            current = invested * (1 + bcb.accumulated(cdi, start, today, factor=float(asset["rate"]) / 100))
+            current = invested * (1 + bcb.accumulated(cdi, start, end, factor=float(asset["rate"]) / 100))
         else:  # IPCA + taxa prefixada ao ano
-            years = max((today - start).days, 0) / 365
+            years = max((end - start).days, 0) / 365
             current = invested * (1 + ipca_period) * (1 + float(asset["rate"]) / 100) ** years
     else:
         quote_missing = price is None
@@ -42,6 +53,7 @@ def value_asset(asset: dict, cdi: list, ipca: list, price: float | None, today: 
         "cdi_period_pct": round(cdi_period * 100, 2),
         "ipca_period_pct": round(ipca_period * 100, 2),
         "maturity": asset.get("maturity"),
+        "status": status,
         "quote_missing": quote_missing,
     }
 
@@ -84,7 +96,17 @@ def alerts(items: list[dict], total: float, today: date, limit: float, days: int
         if mat:
             mat_d = mat if isinstance(mat, date) else date.fromisoformat(mat)
             left = (mat_d - today).days
-            if 0 <= left <= days:
+            if left < 0:
+                out.append({
+                    "kind": "vencido",
+                    "level": "info",
+                    "title": f"{it['name']} venceu em {mat_d.strftime('%d/%m/%Y')}",
+                    "text": "Desde essa data, esta aplicação não rende mais nas condições combinadas. "
+                            "O valor mostrado é o do dia do vencimento.",
+                    "why": "Toda aplicação de renda fixa tem um prazo. No vencimento, o prazo termina e o rendimento "
+                           "combinado deixa de ser calculado.",
+                })
+            elif left <= days:
                 out.append({
                     "kind": "vencimento",
                     "level": "info",
@@ -118,7 +140,7 @@ def _calc_error_item(asset: dict) -> dict:
         "class_label": CLASS_LABELS.get(asset.get("type", ""), "Outros"),
         "calc_error": True,
         "invested": None, "current": None, "return_pct": None, "cdi_period_pct": None, "ipca_period_pct": None,
-        "peso_pct": None, "maturity": asset.get("maturity"), "quote_missing": False,
+        "peso_pct": None, "maturity": asset.get("maturity"), "status": "erro", "quote_missing": False,
     }
 
 
