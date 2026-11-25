@@ -1,11 +1,14 @@
-import { FormEvent, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, setSession } from "../api";
+import AuthShell from "../components/AuthShell";
+import Icon from "../components/Icon";
 
 export default function Login() {
   const nav = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [ver, setVer] = useState(false);
   const [erro, setErro] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -25,17 +28,35 @@ export default function Login() {
   };
 
   return (
-    <div className="auth">
-      <form className="card" onSubmit={enviar}>
-        <h1>FinSight</h1>
-        <p className="muted">Entenda sua carteira em poucos minutos.</p>
-        <label>E-mail<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label>
-        <label>Senha<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" /></label>
-        {erro && <p className="error">{erro}</p>}
-        <button type="submit" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</button>
-        <p>Não tem conta? <Link to="/cadastro">Criar conta</Link></p>
-        <p className="muted small">O primeiro acesso pode levar até 30 segundos enquanto o servidor inicia.</p>
+    <AuthShell>
+      <form className="auth-card" onSubmit={enviar}>
+        <div>
+          <h2>Bem-vindo de volta</h2>
+          <p className="muted">Entre para ver o painel da sua carteira.</p>
+        </div>
+        <label>
+          E-mail
+          <span className="input-icon"><Icon name="usuario" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></span>
+        </label>
+        <label>
+          Senha
+          <span className="input-action">
+            <input type={ver ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
+            <button type="button" className="icon-btn" onClick={() => setVer(!ver)} aria-label={ver ? "Esconder senha" : "Mostrar senha"}>
+              <Icon name={ver ? "olhoFechado" : "olho"} size={18} />
+            </button>
+          </span>
+        </label>
+        {erro && <p className="error" role="alert">{erro}</p>}
+        <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+          <Icon name={loading ? "atualizar" : "sair"} className={loading ? "spin" : ""} /> {loading ? "Entrando…" : "Entrar"}
+        </button>
+        <button type="button" className="btn btn-ghost btn-block" onClick={() => setEmail("demo@finsight.app")}>
+          <Icon name="brilho" /> Usar o e-mail da conta de demonstração
+        </button>
+        <p className="muted" style={{ textAlign: "center", margin: 0 }}>Ainda não tem conta? <Link to="/cadastro">Criar conta grátis</Link></p>
+        <p className="muted small" style={{ textAlign: "center", margin: 0 }}>O primeiro acesso pode levar alguns segundos enquanto o servidor inicia.</p>
       </form>
-    </div>
+    </AuthShell>
   );
 }

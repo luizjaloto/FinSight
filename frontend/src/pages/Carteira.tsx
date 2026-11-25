@@ -1,125 +1,250 @@
-import { FormEvent, useEffect, useState } from "react";
+import { type DragEvent, type FormEvent, useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { api, type Asset, type AssetType } from "../api";
 import Help from "../components/Help";
+import Icon, { type IconName } from "../components/Icon";
+import { useToast } from "../components/Toast";
 import { brl, hojeLocal, parseBR } from "../format";
 
-const hoje = () => hojeLocal();
-const vazio = { type: "renda_fixa" as AssetType, name: "", ticker: "", invested: "", start_date: hoje(), indexer: "cdi", rate: "", maturity: "", quantity: "", avg_price: "" };
+const vazio = () => ({ name: "", ticker: "", invested: "", start_date: hojeLocal(), indexer: "cdi", rate: "", maturity: "", quantity: "", avg_price: "" });
 
-export default function Carteira() {
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [f, setF] = useState({ ...vazio });
-  const [msg, setMsg] = useState("");
+const TIPOS: { id: AssetType; titulo: string; desc: string; icone: IconName }[] = [
+  { id: "renda_fixa", titulo: "Renda fixa", desc: "RDC, CDB, LCA, Tesouro", icone: "predio" },
+  { id: "acao", titulo: "Ação", desc: "Ex.: PETR4, ITUB4", icone: "grafico" },
+  { id: "fii", titulo: "Fundo imobiliário", desc: "Ex.: HGLG11", icone: "carteira" },
+];
+const ICONE: Record<AssetType, IconName> = { renda_fixa: "predio", acao: "grafico", fii: "carteira" };
+
+function Cadastro({ onSalvo }: { onSalvo: () => void }) {
+  const [tipo, setTipo] = useState<AssetType>("renda_fixa");
+  const [f, setF] = useState(vazio);
   const [erro, setErro] = useState("");
-
-  const carregar = () => api.portfolio().then((r) => setAssets(r.assets)).catch((e) => setErro(e.message));
-  useEffect(() => { carregar(); }, []);
-
-  const rf = f.type === "renda_fixa";
+  const [enviando, setEnviando] = useState(false);
+  const toast = useToast();
+  const rf = tipo === "renda_fixa";
+  const campo = (k: keyof ReturnType<typeof vazio>) => ({ value: f[k], onChange: (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value }) });
 
   const salvar = async (e: FormEvent) => {
     e.preventDefault();
-    setErro(""); setMsg("");
+    setErro("");
+    setEnviando(true);
     const qty = parseBR(f.quantity), price = parseBR(f.avg_price);
     const body = rf
-      ? { type: f.type, name: f.name, invested: parseBR(f.invested), start_date: f.start_date, indexer: f.indexer as "cdi" | "ipca",
+      ? { type: tipo, name: f.name, invested: parseBR(f.invested), start_date: f.start_date, indexer: f.indexer as "cdi" | "ipca",
           rate: parseBR(f.rate), maturity: f.maturity || null }
-      : { type: f.type, name: f.name || f.ticker.toUpperCase(), ticker: f.ticker, quantity: qty, avg_price: price,
-          invested: qty * price, start_date: f.start_date };
+      : { type: tipo, name: f.name || f.ticker.toUpperCase(), ticker: f.ticker, quantity: qty, avg_price: price, invested: qty * price,
+          start_date: f.start_date };
     try {
       await api.addAsset(body);
-      setMsg("Aplicação cadastrada.");
-      setF({ ...vazio, type: f.type });
-      carregar();
+      toast(`${rf ? f.name : f.ticker.toUpperCase()} cadastrada na sua carteira.`);
+      setF(vazio());
+      onSalvo();
     } catch (err) {
       setErro((err as Error).message);
+    } finally {
+      setEnviando(false);
     }
-  };
-
-  const importar = async (file: File | undefined) => {
-    if (!file) return;
-    setErro(""); setMsg("");
-    try {
-      const r = await api.importCsv(file);
-      const recusadas = r.rejected.map((x) => `linha ${x.line ?? "?"}: ${x.reason}`).join("; ");
-      setMsg(`${r.imported} aplicação(ões) importada(s).${recusadas ? ` Recusadas – ${recusadas}` : ""}`);
-      carregar();
-    } catch (err) {
-      setErro((err as Error).message);
-    }
-  };
-
-  const remover = async (id: string) => {
-    await api.removeAsset(id);
-    carregar();
   };
 
   return (
-    <div className="grid">
-      <form className="card half" onSubmit={salvar}>
-        <h2>Cadastrar aplicação</h2>
-        <label>
-          Tipo
-          <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value as AssetType })}>
-            <option value="renda_fixa">Renda fixa (RDC, CDB, LCA, Tesouro)</option>
-            <option value="acao">Ação</option>
-            <option value="fii">Fundo imobiliário (FII)</option>
-          </select>
-        </label>
+    <form onSubmit={salvar} noValidate={false}>
+      <div className="tipo-cards" role="group" aria-label="Tipo de aplicação">
+        {TIPOS.map((t) => (
+          <button type="button" key={t.id} className="tipo-card" aria-pressed={tipo === t.id} onClick={() => { setTipo(t.id); setErro(""); }}>
+            <span className="bubble b1"><Icon name={t.icone} /></span>
+            <strong>{t.titulo}</strong>
+            <small>{t.desc}</small>
+          </button>
+        ))}
+      </div>
 
+      <div className="form-grid">
         {rf ? (
           <>
-            <label>Nome<input placeholder="Ex.: RDC CrediAlta" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required /></label>
-            <label>Valor aplicado (R$)<input inputMode="decimal" placeholder="Ex.: 5.000,00" value={f.invested} onChange={(e) => setF({ ...f, invested: e.target.value })} required /></label>
+            <label className="full">Nome da aplicação<input placeholder="Ex.: RDC CrediAlta" required {...campo("name")} /></label>
+            <label>Valor aplicado (R$)<input inputMode="decimal" placeholder="Ex.: 5.000,00" required {...campo("invested")} /></label>
             <label>
               Rende pelo
-              <select value={f.indexer} onChange={(e) => setF({ ...f, indexer: e.target.value })}>
+              <select {...campo("indexer")}>
                 <option value="cdi">% do CDI</option>
                 <option value="ipca">IPCA + taxa</option>
               </select>
             </label>
             <label>
-              {f.indexer === "cdi" ? <>Quanto do CDI (%) <Help termo="% do CDI" /></> : <>Taxa acima da inflação (% ao ano) <Help termo="IPCA+" /></>}
-              <input inputMode="decimal" placeholder={f.indexer === "cdi" ? "Ex.: 105 (para 105% do CDI)" : "Ex.: 6,2"} value={f.rate}
-                     onChange={(e) => setF({ ...f, rate: e.target.value })} required />
+              <span>{f.indexer === "cdi" ? "Quanto do CDI (%)" : "Taxa acima da inflação (% ao ano)"} <Help termo={f.indexer === "cdi" ? "% do CDI" : "IPCA+"} /></span>
+              <input inputMode="decimal" placeholder={f.indexer === "cdi" ? "Ex.: 105 (para 105% do CDI)" : "Ex.: 6,2"} required {...campo("rate")} />
+              <span className="dica">{f.indexer === "cdi" ? "Pode digitar 105 ou 1,05: os dois significam 105% do CDI." : "Entre -10% e 50% ao ano."}</span>
             </label>
-            <label>Vencimento (opcional)<input type="date" value={f.maturity} onChange={(e) => setF({ ...f, maturity: e.target.value })} /></label>
+            <label>Vencimento (opcional)<input type="date" min={f.start_date} {...campo("maturity")} /></label>
           </>
         ) : (
           <>
-            <label>Código de negociação<input placeholder={f.type === "fii" ? "Ex.: HGLG11" : "Ex.: PETR4"} value={f.ticker} onChange={(e) => setF({ ...f, ticker: e.target.value })} required /></label>
-            <label>Quantidade<input inputMode="decimal" value={f.quantity} onChange={(e) => setF({ ...f, quantity: e.target.value })} required /></label>
-            <label>Preço médio pago (R$)<input inputMode="decimal" value={f.avg_price} onChange={(e) => setF({ ...f, avg_price: e.target.value })} required /></label>
+            <label>Código de negociação<input placeholder={tipo === "fii" ? "Ex.: HGLG11" : "Ex.: PETR4"} required {...campo("ticker")} /></label>
+            <label>Nome (opcional)<input placeholder={tipo === "fii" ? "Ex.: CSHG Logística" : "Ex.: Petrobras PN"} {...campo("name")} /></label>
+            <label>Quantidade<input inputMode="decimal" required {...campo("quantity")} /></label>
+            <label>Preço médio pago (R$)<input inputMode="decimal" required {...campo("avg_price")} /></label>
           </>
         )}
-        <label>Data da aplicação<input type="date" value={f.start_date} max={hoje()} onChange={(e) => setF({ ...f, start_date: e.target.value })} required /></label>
-        {erro && <p className="error">{erro}</p>}
-        {msg && <p className="ok">{msg}</p>}
-        <button type="submit">Salvar</button>
-      </form>
+        <label>Data da aplicação<input type="date" max={hojeLocal()} required {...campo("start_date")} /></label>
+      </div>
 
-      <section className="card half">
-        <h2>Importar da B3</h2>
-        <p>
-          Na Área do Investidor da B3, exporte a sua posição em CSV e envie o arquivo aqui. Ações e FIIs são importados com a quantidade e o
-          preço de fechamento.
-        </p>
-        <input type="file" accept=".csv,text/csv" onChange={(e) => importar(e.target.files?.[0])} aria-label="Arquivo CSV da B3" />
+      {erro && <p className="error" role="alert" style={{ marginTop: 14 }}>{erro}</p>}
+      <div className="form-actions" style={{ marginTop: 18 }}>
+        <button type="submit" className="btn btn-primary" disabled={enviando}>
+          <Icon name={enviando ? "atualizar" : "ok"} className={enviando ? "spin" : ""} /> {enviando ? "Salvando…" : "Salvar aplicação"}
+        </button>
+        <button type="button" className="btn btn-ghost" onClick={() => { setF(vazio()); setErro(""); }}>Limpar campos</button>
+      </div>
+    </form>
+  );
+}
 
-        <h2 className="mt">Aplicações cadastradas</h2>
-        {assets.length === 0 && <p className="muted">Nenhuma aplicação ainda.</p>}
-        <ul className="list">
-          {assets.map((a) => (
-            <li key={a.id}>
-              <span>
-                <strong>{a.ticker ?? a.name}</strong> – {brl(a.invested)}
-                {a.type === "renda_fixa" && a.rate != null && ` · ${a.indexer === "cdi" ? `${a.rate}% do CDI` : `IPCA + ${a.rate}%`}`}
-              </span>
-              <button className="link danger" onClick={() => remover(a.id)}>Remover</button>
-            </li>
-          ))}
-        </ul>
-      </section>
+function Importacao({ onImportado }: { onImportado: () => void }) {
+  const [arrastando, setArrastando] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [resultado, setResultado] = useState<{ imported: number; rejected: { line: number | null; reason: string }[] } | null>(null);
+  const [erro, setErro] = useState("");
+  const toast = useToast();
+
+  const enviar = async (file: File | undefined) => {
+    if (!file) return;
+    if (!/\.csv$/i.test(file.name)) return setErro("Envie um arquivo .csv exportado da Área do Investidor da B3.");
+    setErro(""); setResultado(null); setEnviando(true);
+    try {
+      const r = await api.importCsv(file);
+      setResultado(r);
+      toast(`${r.imported} aplicação(ões) importada(s).`, r.rejected.length ? "info" : "ok");
+      onImportado();
+    } catch (e) {
+      setErro((e as Error).message);
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const soltar = (e: DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    setArrastando(false);
+    enviar(e.dataTransfer.files?.[0]);
+  };
+
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      <label className={`dropzone ${arrastando ? "ativa" : ""}`} onDragOver={(e) => { e.preventDefault(); setArrastando(true); }}
+             onDragLeave={() => setArrastando(false)} onDrop={soltar}>
+        <span className="bubble b1" style={{ width: 60, height: 60 }}><Icon name={enviando ? "atualizar" : "upload"} size={28} className={enviando ? "spin" : ""} /></span>
+        <strong>{enviando ? "Importando…" : "Arraste o arquivo CSV aqui ou clique para escolher"}</strong>
+        <span className="muted small">Na Área do Investidor da B3, exporte a sua posição em CSV. Máximo de 1 MB.</span>
+        <input type="file" accept=".csv,text/csv" onChange={(e) => enviar(e.target.files?.[0])} aria-label="Arquivo CSV da B3" />
+      </label>
+      <div className="form-actions">
+        <a className="btn btn-soft" href="/modelo_posicao_b3.csv" download><Icon name="download" /> Baixar modelo de CSV</a>
+        <Link className="btn btn-ghost" to="/glossario#B3"><Icon name="ajuda" /> O que é a B3?</Link>
+      </div>
+      {erro && <p className="error" role="alert">{erro}</p>}
+      {resultado && (
+        <div className={`alert ${resultado.rejected.length ? "atencao" : "info"}`} role="status">
+          <span className="bubble"><Icon name={resultado.rejected.length ? "alerta" : "ok"} /></span>
+          <div>
+            <strong>{resultado.imported} aplicação(ões) importada(s)</strong>
+            {resultado.rejected.length > 0 && (
+              <ul className="small" style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                {resultado.rejected.map((x, i) => <li key={i}>Linha {x.line ?? "?"}: {x.reason}</li>)}
+              </ul>
+            )}
+          </div>
+          <span />
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function Carteira() {
+  const [params, setParams] = useSearchParams();
+  const aba = params.get("aba") === "importar" ? "importar" : "cadastrar";
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [confirmando, setConfirmando] = useState<string | null>(null);
+  const [erro, setErro] = useState("");
+  const toast = useToast();
+
+  const carregar = () => api.portfolio().then((r) => { setAssets(r.assets); setErro(""); }).catch((e) => setErro(e.message));
+  useEffect(() => { carregar(); }, []);
+
+  const remover = async (a: Asset) => {
+    try {
+      await api.removeAsset(a.id);
+      toast(`${a.ticker ?? a.name} removida da carteira.`);
+      setConfirmando(null);
+      carregar();
+    } catch (e) {
+      toast((e as Error).message, "erro");
+    }
+  };
+
+  const total = assets.reduce((s, a) => s + a.invested, 0);
+
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <h1>Sua carteira</h1>
+          <p>Cadastre suas aplicações uma a uma ou importe tudo de uma vez pelo arquivo da B3.</p>
+        </div>
+        <Link className="btn btn-soft" to="/"><Icon name="painel" /> Ver painel</Link>
+      </div>
+
+      <div className="grid">
+        <section className="card span-7" aria-labelledby="t-form">
+          <div className="card-head">
+            <h2 id="t-form">{aba === "cadastrar" ? <><Icon name="mais" /> Nova aplicação</> : <><Icon name="upload" /> Importar da B3</>}</h2>
+            <div className="segmented" role="tablist" aria-label="Forma de cadastro">
+              <button role="tab" aria-selected={aba === "cadastrar"} onClick={() => setParams({})}><Icon name="mais" size={16} /> Cadastrar</button>
+              <button role="tab" aria-selected={aba === "importar"} onClick={() => setParams({ aba: "importar" })}><Icon name="upload" size={16} /> Importar</button>
+            </div>
+          </div>
+          {aba === "cadastrar" ? <Cadastro onSalvo={carregar} /> : <Importacao onImportado={carregar} />}
+        </section>
+
+        <section className="card span-5" aria-labelledby="t-lista">
+          <div className="card-head">
+            <h2 id="t-lista"><Icon name="carteira" /> Cadastradas <span className="badge neutral">{assets.length}</span></h2>
+            {assets.length > 0 && <span className="muted small">Aplicado: <strong>{brl(total)}</strong></span>}
+          </div>
+          {erro && <p className="error" role="alert">{erro}</p>}
+          {assets.length === 0 && !erro && (
+            <div className="empty" style={{ padding: 24 }}>
+              <span className="bubble b1"><Icon name="carteira" size={30} /></span>
+              <p className="muted">Nenhuma aplicação ainda. Comece pelo formulário ao lado.</p>
+            </div>
+          )}
+          <ul className="lista">
+            {assets.map((a) => (
+              <li key={a.id} className="item">
+                <span className="bubble b1"><Icon name={ICONE[a.type] ?? "carteira"} /></span>
+                <div className="info">
+                  <strong>{a.ticker ?? a.name}</strong>
+                  <span>
+                    {brl(a.invested)}
+                    {a.type === "renda_fixa" && a.rate != null && ` · ${a.indexer === "cdi" ? `${a.rate}% do CDI` : `IPCA + ${a.rate}%`}`}
+                    {a.maturity && ` · vence ${new Date(a.maturity + "T12:00:00").toLocaleDateString("pt-BR")}`}
+                  </span>
+                </div>
+                {confirmando === a.id ? (
+                  <span className="form-actions" style={{ marginTop: 0 }}>
+                    <button className="btn btn-danger btn-sm" onClick={() => remover(a)}>Remover</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setConfirmando(null)}>Cancelar</button>
+                  </span>
+                ) : (
+                  <button className="icon-btn" onClick={() => setConfirmando(a.id)} aria-label={`Remover ${a.ticker ?? a.name}`} title="Remover">
+                    <Icon name="lixeira" size={18} />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+    </>
   );
 }
