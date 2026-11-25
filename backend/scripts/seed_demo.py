@@ -6,11 +6,12 @@ Login: demo@finsight.app  /  senha: definida em DEMO_PASSWORD no .env (padrão: 
 import os
 import sys
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # permite: python scripts/seed_demo.py
 
+from app.clock import today_br
 from app.db import ensure_indexes, get_db
 from app.security import hash_password
 
@@ -29,7 +30,7 @@ def main() -> None:
     db.users.insert_one({"_id": uid, "name": "Roberto (demonstração)", "email": EMAIL,
                          "password_hash": hash_password(os.getenv("DEMO_PASSWORD", "Demo@2026")),
                          "terms_accepted_at": datetime.now(timezone.utc), "created_at": datetime.now(timezone.utc)})
-    today = date.today()
+    today = today_br()
     d = lambda days: (today - timedelta(days=days)).isoformat()
     assets = [
         {"type": "renda_fixa", "name": "RDC CrediAlta", "invested": 15000, "start_date": d(330), "indexer": "cdi", "rate": 105,

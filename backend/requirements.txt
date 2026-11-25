@@ -7,6 +7,8 @@ httpx>=0.27
 python-multipart>=0.0.9
 pandas>=2.2
 numpy>=2.0
+# fuso America/Sao_Paulo para zoneinfo no Windows (B9); no Linux também evita depender do pacote do sistema
+tzdata==2026.6
 email-validator>=2.2
 
 # testes

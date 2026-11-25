@@ -3,6 +3,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
+from .. import clock
 from ..db import get_db
 from ..models import AssetIn
 from ..security import current_user_id
@@ -50,7 +51,7 @@ async def import_csv(file: UploadFile = File(...), user_id: str = Depends(curren
     content = await file.read()
     if len(content) > 1_000_000:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Arquivo muito grande (máximo 1 MB).")
-    result = parse_b3_csv(content)
+    result = parse_b3_csv(content, clock.today_br())
     docs = []
     for a in result["assets"]:
         try:

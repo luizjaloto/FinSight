@@ -35,7 +35,7 @@ def fetch_series(name: str, start: date, end: date, client: httpx.Client | None 
             client.close()
 
 
-def get_series(db, name: str, years: int = 3) -> list[tuple[date, float]]:
+def get_series(db, name: str, years: int = 3, *, today: date) -> list[tuple[date, float]]:
     """Série dos últimos `years` anos, usando o cache se ainda estiver válido."""
     cached = db.indicators.find_one({"serie": name})
     now = datetime.now(timezone.utc)
@@ -45,7 +45,7 @@ def get_series(db, name: str, years: int = 3) -> list[tuple[date, float]]:
             updated = updated.replace(tzinfo=timezone.utc)
         if now - updated < timedelta(hours=CACHE_HOURS):
             return [(date.fromisoformat(d), v) for d, v in cached["values"]]
-    end = date.today()
+    end = today
     start = end - timedelta(days=365 * years)
     try:
         values = fetch_series(name, start, end)
@@ -79,11 +79,11 @@ def accumulated_monthly(series: list[tuple[date, float]], start: date, end: date
     return acc - 1
 
 
-def summary(db) -> dict:
+def summary(db, today: date) -> dict:
     """CDI e IPCA acumulados em 12 meses e o último valor de cada série."""
-    cdi = get_series(db, "cdi")
-    ipca = get_series(db, "ipca")
-    end = cdi[-1][0] if cdi else date.today()
+    cdi = get_series(db, "cdi", today=today)
+    ipca = get_series(db, "ipca", today=today)
+    end = cdi[-1][0] if cdi else today
     start = end - timedelta(days=365)
     return {
         "cdi_12m": round(accumulated(cdi, start, end) * 100, 2),

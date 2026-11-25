@@ -1,8 +1,9 @@
 """Painel, indicadores do Banco Central e glossário (RF07, RF08, RF09, RF10)."""
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from .. import clock
 from ..config import settings
 from ..db import get_db
 from ..glossary import GLOSSARY
@@ -18,7 +19,7 @@ AVISO = "O FinSight é uma ferramenta educativa. As informações não são reco
 @router.get("/indicadores")
 def indicadores():
     try:
-        return bcb.summary(get_db())
+        return bcb.summary(get_db(), clock.today_br())
     except Exception:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Não foi possível consultar o Banco Central agora.")
 
@@ -33,8 +34,9 @@ def dashboard(user_id: str = Depends(current_user_id)):
     db = get_db()
     assets = (db.portfolios.find_one({"user_id": user_id}) or {}).get("assets", [])
     try:
-        cdi = bcb.get_series(db, "cdi")
-        ipca = bcb.get_series(db, "ipca")
+        today = clock.today_br()
+        cdi = bcb.get_series(db, "cdi", today=today)
+        ipca = bcb.get_series(db, "ipca", today=today)
     except Exception:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Indicadores do Banco Central indisponíveis no momento.")
 
@@ -45,7 +47,7 @@ def dashboard(user_id: str = Depends(current_user_id)):
             quotes[tk] = get_quote(db, tk)
             prices[tk] = quotes[tk]["price"]
 
-    data = analytics.build_dashboard(assets, cdi, ipca, prices, date.today(),
+    data = analytics.build_dashboard(assets, cdi, ipca, prices, today,
                                      limit=settings.concentration_limit, days=settings.maturity_alert_days)
     db.alerts.delete_many({"user_id": user_id})
     if data["alertas"]:
