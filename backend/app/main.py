@@ -16,17 +16,24 @@ async def lifespan(app: FastAPI):
     yield
 
 
+PRODUCAO = settings.env == "production"
+
 app = FastAPI(
     title="FinSight API",
     version=__version__,
     description="Painel inteligente de carteira e educação financeira para pequenos investidores – Equipe 04, PI III, Fatec Pompeia.",
     lifespan=lifespan,
+    # P1-8: em produção, a documentação interativa e o esquema da API não ficam expostos
+    docs_url=None if PRODUCAO else "/docs",
+    redoc_url=None if PRODUCAO else "/redoc",
+    openapi_url=None if PRODUCAO else "/openapi.json",
 )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.cors_origins),
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # em produção, só os métodos e cabeçalhos que a API e o front-end realmente usam
+    allow_methods=["GET", "POST", "DELETE"] if PRODUCAO else ["*"],
+    allow_headers=["Authorization", "Content-Type"] if PRODUCAO else ["*"],
 )
 app.include_router(auth.router)
 app.include_router(portfolio.router)

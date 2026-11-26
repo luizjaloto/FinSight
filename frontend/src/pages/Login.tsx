@@ -51,9 +51,11 @@ export default function Login() {
         <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
           <Icon name={loading ? "atualizar" : "sair"} className={loading ? "spin" : ""} /> {loading ? "Entrando…" : "Entrar"}
         </button>
-        <button type="button" className="btn btn-ghost btn-block" onClick={() => setEmail("demo@finsight.app")}>
-          <Icon name="brilho" /> Usar o e-mail da conta de demonstração
-        </button>
+        {import.meta.env.VITE_DEMO === "1" && (
+          <button type="button" className="btn btn-ghost btn-block" onClick={() => setEmail("demo@finsight.app")}>
+            <Icon name="brilho" /> Usar o e-mail da conta de demonstração
+          </button>
+        )}
         <p className="muted" style={{ textAlign: "center", margin: 0 }}>Ainda não tem conta? <Link to="/cadastro">Criar conta grátis</Link></p>
         <p className="muted small" style={{ textAlign: "center", margin: 0 }}>O primeiro acesso pode levar alguns segundos enquanto o servidor inicia.</p>
       </form>
