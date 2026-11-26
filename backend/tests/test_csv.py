@@ -76,3 +76,37 @@ def test_endpoint_informa_linhas_lidas_como_milhar(client, auth):
     assert r.json()["conferir_milhar"] == [{"line": 2, "ticker": "PETR4", "campo": "quantidade", "texto": "5.000", "valor": 5000}]
     carteira = client.get("/portfolio", headers=auth).json()["assets"]
     assert next(a for a in carteira if a["ticker"] == "PETR4")["quantity"] == 5000
+
+
+def test_mesmo_ticker_em_duas_linhas_vira_uma_posicao():
+    """P3-c: a B3 lista uma linha por conta; as quantidades se somam e o preço médio é ponderado."""
+    txt = ("Código de Negociação;Quantidade;Preço de Fechamento;Instituição\n"
+           "PETR4;100;38,00;CORRETORA A\nPETR4;50;38,00;CORRETORA B\nVALE3;10;61,30;CORRETORA A\n")
+    r = parse_b3_csv(txt.encode(), HOJE)
+    petr = next(a for a in r["assets"] if a["ticker"] == "PETR4")
+    assert [a["ticker"] for a in r["assets"]] == ["PETR4", "VALE3"]
+    assert petr["quantity"] == 150 and petr["avg_price"] == 38.0 and petr["invested"] == 5700.0
+
+
+def test_reimportar_o_mesmo_arquivo_nao_duplica(client, auth):
+    """P3-c: o segundo envio do mesmo arquivo não altera a carteira; os códigos já existentes são informados."""
+    csv = "Código de Negociação;Quantidade;Preço de Fechamento\nPETR4;10;38,00\nHGLG11;0,5;160,00\n"
+    envio = {"file": ("posicao.csv", csv.encode(), "text/csv")}
+    primeiro = client.post("/portfolio/import-csv", headers=auth, files=envio).json()
+    assert primeiro["imported"] == 2 and primeiro["ja_na_carteira"] == []
+
+    segundo = client.post("/portfolio/import-csv", headers=auth, files=envio).json()
+    assert segundo["imported"] == 0 and segundo["ja_na_carteira"] == ["PETR4", "HGLG11"]
+    assert len(client.get("/portfolio", headers=auth).json()["assets"]) == 2
+
+
+def test_importacao_nao_altera_aplicacao_ja_cadastrada_a_mao(client, auth):
+    """P3-c: se o ticker já está na carteira (cadastrado à mão), a importação o deixa como está."""
+    manual = {"type": "acao", "name": "Petrobras", "ticker": "PETR4", "quantity": 1, "avg_price": 30, "invested": 30,
+              "start_date": "2026-01-10"}
+    client.post("/portfolio/assets", headers=auth, json=manual)
+    csv = "Código de Negociação;Quantidade;Preço de Fechamento\nPETR4;10;38,00\n"
+    r = client.post("/portfolio/import-csv", headers=auth, files={"file": ("p.csv", csv.encode(), "text/csv")}).json()
+    assert r["imported"] == 0 and r["ja_na_carteira"] == ["PETR4"]
+    ativos = client.get("/portfolio", headers=auth).json()["assets"]
+    assert len(ativos) == 1 and ativos[0]["quantity"] == 1 and ativos[0]["start_date"] == "2026-01-10"

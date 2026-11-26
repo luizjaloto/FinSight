@@ -53,14 +53,21 @@ async def import_csv(file: Annotated[UploadFile, File()], user_id: Annotated[str
     if len(content) > 1_000_000:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Arquivo muito grande (máximo 1 MB).")
     result = parse_b3_csv(content, clock.today_br())
+    db = get_db()
+    # P3-c: um ticker que já está na carteira não é importado de novo nem altera a aplicação existente.
+    # Assim, importar o mesmo arquivo duas vezes não duplica nada. Para atualizar uma posição, remova-a e importe de novo.
+    atuais = _assets(db, user_id)
+    existentes = {a.get("ticker") for a in atuais}
+    ja_na_carteira = [a["ticker"] for a in result["assets"] if a["ticker"] in existentes]
     docs = []
     for a in result["assets"]:
+        if a["ticker"] in existentes:
+            continue
         try:
             docs.append(_to_doc(AssetIn(**a)))
         except ValueError as e:
             result["rejected"].append({"line": None, "reason": f"{a.get('ticker')}: {e}"})
-    db = get_db()
-    if len(_assets(db, user_id)) + len(docs) > MAX_ASSETS:
+    if len(atuais) + len(docs) > MAX_ASSETS:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"A importação passaria do limite de {MAX_ASSETS} aplicações.")
     if docs:
         db.portfolios.update_one({"user_id": user_id}, {"$push": {"assets": {"$each": docs}}}, upsert=True)
@@ -69,4 +76,4 @@ async def import_csv(file: Annotated[UploadFile, File()], user_id: Annotated[str
     # linhas em que 'ponto de milhar' foi lido como milhar (5.000 → 5000): o usuário confere se era isso mesmo
     conferir = [m for m in result["milhar_sem_virgula"] if m["ticker"] in importados]
     return {"imported": len(docs), "rejected": result["rejected"], "rate_pct": round(len(docs) / total * 100, 1) if total else 0,
-            "conferir_milhar": conferir}
+            "conferir_milhar": conferir, "ja_na_carteira": ja_na_carteira}

@@ -99,4 +99,21 @@ def parse_b3_csv(content: bytes, today: date) -> dict:
         name = row[i_nm].strip() if i_nm is not None and i_nm < len(row) and row[i_nm].strip() else ticker
         assets.append({"type": kind, "name": name[:80], "ticker": ticker, "quantity": qty, "avg_price": price,
                        "invested": round(qty * price, 2), "start_date": today.isoformat()})
-    return {"assets": assets, "rejected": rejected, "milhar_sem_virgula": milhar}
+    return {"assets": _junta_repetidos(assets), "rejected": rejected, "milhar_sem_virgula": milhar}
+
+
+def _junta_repetidos(assets: list[dict]) -> list[dict]:
+    """Um ticker vira uma posição só. A B3 traz uma linha por conta/corretora: as quantidades se somam
+    e o preço médio é ponderado pela quantidade. O nome e o tipo ficam os da primeira linha."""
+    por_ticker: dict[str, dict] = {}
+    for a in assets:
+        atual = por_ticker.get(a["ticker"])
+        if atual is None:
+            por_ticker[a["ticker"]] = dict(a)
+            continue
+        custo = atual["quantity"] * atual["avg_price"] + a["quantity"] * a["avg_price"]
+        atual["quantity"] += a["quantity"]
+        atual["avg_price"] = round(custo / atual["quantity"], 6)
+        atual["invested"] = round(atual["invested"] + a["invested"], 2)
+    return list(por_ticker.values())
+
