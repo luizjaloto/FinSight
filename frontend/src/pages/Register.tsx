@@ -39,12 +39,21 @@ export default function Register() {
           <h2>Crie sua conta</h2>
           <p className="muted">Leva menos de um minuto. Não pedimos dados bancários.</p>
         </div>
-        <label>Nome<span className="input-icon"><Icon name="usuario" /><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required autoComplete="name" /></span></label>
-        <label>E-mail<input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required autoComplete="email" /></label>
-        <label>
-          Senha
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label htmlFor="cad-nome">Nome</label>
+          <span className="input-icon">
+            <Icon name="usuario" />
+            <input id="cad-nome" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required autoComplete="name" />
+          </span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label htmlFor="cad-email">E-mail</label>
+          <input id="cad-email" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required autoComplete="email" />
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label htmlFor="cad-senha">Senha</label>
           <span className="input-action">
-            <input type={ver ? "text" : "password"} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} required
+            <input id="cad-senha" type={ver ? "text" : "password"} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} required
                    autoComplete="new-password" aria-describedby="forca-senha" />
             <button type="button" className="icon-btn" onClick={() => setVer(!ver)} aria-label={ver ? "Esconder senha" : "Mostrar senha"}>
               <Icon name={ver ? "olhoFechado" : "olho"} size={18} />
@@ -52,17 +61,17 @@ export default function Register() {
           </span>
           <span className="forca" data-nivel={forca.nivel} aria-hidden="true"><span /><span /><span /><span /></span>
           <span id="forca-senha" className="dica">{forca.texto}{bytes > 72 && " · passou do limite de 72 bytes"}</span>
-        </label>
+        </div>
         <div className="termos-box">
           <strong><Icon name="escudo" size={16} /> Termo de privacidade</strong>
           <p>
             Guardamos apenas seu nome, e-mail e as aplicações que você cadastrar. Não pedimos senha de banco, CPF ou número de conta. Você pode
             baixar ou excluir todos os seus dados a qualquer momento. O FinSight é educativo e não recomenda investimentos.
           </p>
-          <label className="check">
-            <input type="checkbox" checked={f.accept_terms} onChange={(e) => setF({ ...f, accept_terms: e.target.checked })} />
-            Li e aceito o termo de privacidade
-          </label>
+          <div className="check" style={{ display: "flex" }}>
+            <input id="cad-termos" type="checkbox" checked={f.accept_terms} onChange={(e) => setF({ ...f, accept_terms: e.target.checked })} />
+            <label htmlFor="cad-termos" style={{ fontWeight: 500 }}>Li e aceito o termo de privacidade</label>
+          </div>
         </div>
         {erro && <p className="error" role="alert">{erro}</p>}
         <button type="submit" className="btn btn-primary btn-block" disabled={enviando}>

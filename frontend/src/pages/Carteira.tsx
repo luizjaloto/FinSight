@@ -93,31 +93,58 @@ function Cadastro({ onSalvo }: { onSalvo: () => void }) {
       <div className="form-grid">
         {rf ? (
           <>
-            <label className="full">Nome da aplicação<input placeholder="Ex.: RDC CrediAlta" required {...campo("name")} /></label>
-            <label>Valor aplicado (R$)<input id="campo-invested" inputMode="decimal" placeholder="Ex.: 5.000,00" required {...campo("invested")} /></label>
-            <label>
-              Rende pelo
-              <select {...campo("indexer")}>
+            <div className="full" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label htmlFor="campo-name">Nome da aplicação</label>
+              <input id="campo-name" placeholder="Ex.: RDC CrediAlta" required {...campo("name")} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label htmlFor="campo-invested">Valor aplicado (R$)</label>
+              <input id="campo-invested" inputMode="decimal" placeholder="Ex.: 5.000,00" required {...campo("invested")} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label htmlFor="campo-indexer">Rende pelo</label>
+              <select id="campo-indexer" {...campo("indexer")}>
                 <option value="cdi">% do CDI</option>
                 <option value="ipca">IPCA + taxa</option>
               </select>
-            </label>
-            <label>
-              <span>{f.indexer === "cdi" ? "Quanto do CDI (%)" : "Taxa acima da inflação (% ao ano)"} <Help termo={f.indexer === "cdi" ? "% do CDI" : "IPCA+"} /></span>
-              <input id="campo-rate" inputMode="decimal" placeholder={f.indexer === "cdi" ? "Ex.: 105 (para 105% do CDI)" : "Ex.: 6,2"} required {...campo("rate")} />
-              <span className="dica">{f.indexer === "cdi" ? "Pode digitar 105 ou 1,05: os dois significam 105% do CDI." : "Entre -10% e 50% ao ano."}</span>
-            </label>
-            <label>Vencimento (opcional)<input type="date" min={f.start_date} {...campo("maturity")} /></label>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <label htmlFor="campo-rate">{f.indexer === "cdi" ? "Quanto do CDI (%)" : "Taxa acima da inflação (% ao ano)"}</label>
+                <Help termo={f.indexer === "cdi" ? "% do CDI" : "IPCA+"} />
+              </div>
+              <input id="campo-rate" inputMode="decimal" aria-describedby="dica-rate" placeholder={f.indexer === "cdi" ? "Ex.: 105 (para 105% do CDI)" : "Ex.: 6,2"} required {...campo("rate")} />
+              <span id="dica-rate" className="dica">{f.indexer === "cdi" ? "Pode digitar 105 ou 1,05: os dois significam 105% do CDI." : "Entre -10% e 50% ao ano."}</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label htmlFor="campo-maturity">Vencimento (opcional)</label>
+              <input id="campo-maturity" type="date" min={f.start_date} {...campo("maturity")} />
+            </div>
           </>
         ) : (
           <>
-            <label>Código de negociação<input placeholder={tipo === "fii" ? "Ex.: HGLG11" : "Ex.: PETR4"} required {...campo("ticker")} /></label>
-            <label>Nome (opcional)<input placeholder={tipo === "fii" ? "Ex.: CSHG Logística" : "Ex.: Petrobras PN"} {...campo("name")} /></label>
-            <label>Quantidade<input id="campo-quantity" inputMode="decimal" required {...campo("quantity")} /></label>
-            <label>Preço médio pago (R$)<input id="campo-avg-price" inputMode="decimal" required {...campo("avg_price")} /></label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label htmlFor="campo-ticker">Código de negociação</label>
+              <input id="campo-ticker" placeholder={tipo === "fii" ? "Ex.: HGLG11" : "Ex.: PETR4"} required {...campo("ticker")} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label htmlFor="campo-name-rv">Nome (opcional)</label>
+              <input id="campo-name-rv" placeholder={tipo === "fii" ? "Ex.: CSHG Logística" : "Ex.: Petrobras PN"} {...campo("name")} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label htmlFor="campo-quantity">Quantidade</label>
+              <input id="campo-quantity" inputMode="decimal" required {...campo("quantity")} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label htmlFor="campo-avg-price">Preço médio pago (R$)</label>
+              <input id="campo-avg-price" inputMode="decimal" required {...campo("avg_price")} />
+            </div>
           </>
         )}
-        <label>Data da aplicação<input type="date" max={hojeLocal()} required {...campo("start_date")} /></label>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label htmlFor="campo-start-date">Data da aplicação</label>
+          <input id="campo-start-date" type="date" max={hojeLocal()} required {...campo("start_date")} />
+        </div>
       </div>
 
       {confirmacao && (

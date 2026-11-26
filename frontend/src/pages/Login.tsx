@@ -34,19 +34,22 @@ export default function Login() {
           <h2>Bem-vindo de volta</h2>
           <p className="muted">Entre para ver o painel da sua carteira.</p>
         </div>
-        <label>
-          E-mail
-          <span className="input-icon"><Icon name="usuario" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></span>
-        </label>
-        <label>
-          Senha
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label htmlFor="login-email">E-mail</label>
+          <span className="input-icon">
+            <Icon name="usuario" />
+            <input id="login-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+          </span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label htmlFor="login-senha">Senha</label>
           <span className="input-action">
-            <input type={ver ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
+            <input id="login-senha" type={ver ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
             <button type="button" className="icon-btn" onClick={() => setVer(!ver)} aria-label={ver ? "Esconder senha" : "Mostrar senha"}>
               <Icon name={ver ? "olhoFechado" : "olho"} size={18} />
             </button>
           </span>
-        </label>
+        </div>
         {erro && <p className="error" role="alert">{erro}</p>}
         <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
           <Icon name={loading ? "atualizar" : "sair"} className={loading ? "spin" : ""} /> {loading ? "Entrando…" : "Entrar"}
