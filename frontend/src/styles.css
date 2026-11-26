@@ -139,9 +139,14 @@ footer { font-size: 1rem; color: var(--suave); text-align: center; padding: 20px
   .nav, .user-btn .nome { display: none; }
   .bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; background: var(--cartao);
     border-top: 1px solid var(--borda); padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); justify-content: space-around; }
-  .bottom-nav a { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 0.875rem; color: var(--suave);
-    text-decoration: none; padding: 6px 12px; border-radius: 12px; min-width: 64px; }
+  .bottom-nav a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 0.875rem; color: var(--suave);
+    text-decoration: none; padding: 6px 12px; border-radius: 12px; min-width: 64px; min-height: 44px; }
   .bottom-nav a.active { color: var(--primaria); background: var(--primaria-suave); }
+  .help { width: 44px; height: 44px; }
+  .link-btn { min-height: 44px; display: inline-flex; align-items: center; }
+  .chip, .segmented button, .btn-sm { min-height: 44px; }
+  .letras .chip { min-width: 44px; }
+  .toast .icon-btn { width: 44px; height: 44px; }
 }
 
 /* ---------- cartões e grade ---------- */
@@ -208,7 +213,7 @@ p.small, .stat .small, ul.small { font-size: 1rem; }
 .segmented { display: inline-flex; padding: 4px; gap: 4px; border-radius: 12px; background: var(--fundo); border: 1px solid var(--borda); }
 .segmented button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 8px 14px; border-radius: 9px;
   color: var(--suave); font: inherit; font-weight: 650; cursor: pointer; min-height: 36px; }
-.segmented button[aria-pressed="true"], .segmented button[aria-selected="true"] { background: var(--cartao); color: var(--primaria); box-shadow: var(--sombra); }
+.segmented button[aria-pressed="true"], .segmented button[aria-selected="true"], .segmented button[aria-current="true"] { background: var(--cartao); color: var(--primaria); box-shadow: var(--sombra); }
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip { border: 1px solid var(--borda); background: var(--cartao); color: var(--texto); padding: 7px 14px; border-radius: 999px; font: inherit;
   font-weight: 600; cursor: pointer; min-height: 36px; }
@@ -249,7 +254,7 @@ tr:hover td, tr:hover tbody th, tbody tr:hover th { background: color-mix(in srg
 label { display: flex; flex-direction: column; gap: 6px; font-weight: 650; font-size: 1rem; }
 input, select { font: inherit; padding: 11px 14px; border: 1px solid var(--borda-campo); border-radius: 12px; background: var(--cartao);
   color: var(--texto); width: 100%; min-height: 44px; font-weight: 500; }
-input:focus, select:focus { outline: none; border-color: var(--primaria); box-shadow: 0 0 0 4px var(--primaria-suave); }
+input:focus, select:focus { outline: 3px solid var(--primaria); outline-offset: 2px; border-color: var(--primaria); }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .form-grid .full { grid-column: 1 / -1; }
 @media (max-width: 560px) { .form-grid { grid-template-columns: 1fr; } }
@@ -276,6 +281,7 @@ input:focus, select:focus { outline: none; border-color: var(--primaria); box-sh
 .dropzone { border: 2px dashed var(--borda); border-radius: 16px; padding: 30px 18px; text-align: center; display: flex; flex-direction: column;
   align-items: center; gap: 10px; cursor: pointer; background: var(--fundo); transition: border-color 0.15s, background 0.15s; }
 .dropzone.ativa, .dropzone:hover { border-color: var(--primaria); background: var(--primaria-suave); }
+.dropzone:focus-within { outline: 3px solid var(--primaria); outline-offset: 2px; border-color: var(--primaria); }
 .dropzone input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 
 .lista { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }

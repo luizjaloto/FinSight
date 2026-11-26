@@ -1,4 +1,4 @@
-import { type DragEvent, type FormEvent, useEffect, useState } from "react";
+import { type DragEvent, type FormEvent, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, type Asset, type AssetType } from "../api";
 import Help from "../components/Help";
@@ -251,10 +251,14 @@ export default function Carteira() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [confirmando, setConfirmando] = useState<string | null>(null);
   const [erro, setErro] = useState("");
+  const removerBtnRef = useRef<HTMLButtonElement>(null);
   const toast = useToast();
 
   const carregar = () => api.portfolio().then((r) => { setAssets(r.assets); setErro(""); }).catch((e) => setErro(e.message));
   useEffect(() => { carregar(); }, []);
+  useEffect(() => {
+    if (confirmando) removerBtnRef.current?.focus();
+  }, [confirmando]);
 
   const remover = async (a: Asset) => {
     try {
@@ -283,9 +287,9 @@ export default function Carteira() {
         <section className="card span-7" aria-labelledby="t-form">
           <div className="card-head">
             <h2 id="t-form">{aba === "cadastrar" ? <><Icon name="mais" /> Nova aplicação</> : <><Icon name="upload" /> Importar da B3</>}</h2>
-            <div className="segmented" role="tablist" aria-label="Forma de cadastro">
-              <button role="tab" aria-selected={aba === "cadastrar"} onClick={() => setParams({})}><Icon name="mais" size={16} /> Cadastrar</button>
-              <button role="tab" aria-selected={aba === "importar"} onClick={() => setParams({ aba: "importar" })}><Icon name="upload" size={16} /> Importar</button>
+            <div className="segmented" role="group" aria-label="Forma de cadastro">
+              <button type="button" aria-current={aba === "cadastrar" ? "true" : undefined} onClick={() => setParams({})}><Icon name="mais" size={16} /> Cadastrar</button>
+              <button type="button" aria-current={aba === "importar" ? "true" : undefined} onClick={() => setParams({ aba: "importar" })}><Icon name="upload" size={16} /> Importar</button>
             </div>
           </div>
           {aba === "cadastrar" ? <Cadastro onSalvo={carregar} /> : <Importacao onImportado={carregar} />}
@@ -317,11 +321,21 @@ export default function Carteira() {
                 </div>
                 {confirmando === a.id ? (
                   <span className="form-actions" style={{ marginTop: 0 }}>
-                    <button className="btn btn-danger btn-sm" onClick={() => remover(a)}>Remover</button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setConfirmando(null)}>Cancelar</button>
+                    <button ref={removerBtnRef} type="button" className="btn btn-danger btn-sm" onClick={() => remover(a)}>Remover</button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => {
+                        const id = `lixeira-${a.id}`;
+                        setConfirmando(null);
+                        window.requestAnimationFrame(() => document.getElementById(id)?.focus());
+                      }}
+                    >
+                      Cancelar
+                    </button>
                   </span>
                 ) : (
-                  <button className="icon-btn" onClick={() => setConfirmando(a.id)} aria-label={`Remover ${a.ticker ?? a.name}`} title="Remover">
+                  <button id={`lixeira-${a.id}`} type="button" className="icon-btn" onClick={() => setConfirmando(a.id)} aria-label={`Remover ${a.ticker ?? a.name}`} title="Remover">
                     <Icon name="lixeira" size={18} />
                   </button>
                 )}
