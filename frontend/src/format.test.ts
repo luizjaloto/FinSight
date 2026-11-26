@@ -9,6 +9,20 @@ describe("formatação", () => {
     expect(Number.isNaN(parseBR(""))).toBe(true);
   });
 
+  // P0-1: ponto sem vírgula é milhar quando segue o padrão de milhar, senão é decimal.
+  it.each([
+    ["5.000", 5000],
+    ["1.500", 1500],
+    ["10.000", 10000],
+    ["12.345.678", 12345678],
+    ["5.000,00", 5000],
+    ["0.5", 0.5],
+    ["12.5", 12.5],
+    ["1500", 1500],
+  ])("lê \"%s\" como %s", (entrada, esperado) => {
+    expect(parseBR(entrada)).toBe(esperado);
+  });
+
   it("formata porcentagem com vírgula", () => {
     expect(pct(14.12)).toBe("14,12%");
   });
