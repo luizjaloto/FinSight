@@ -65,4 +65,8 @@ async def import_csv(file: Annotated[UploadFile, File()], user_id: Annotated[str
     if docs:
         db.portfolios.update_one({"user_id": user_id}, {"$push": {"assets": {"$each": docs}}}, upsert=True)
     total = len(docs) + len(result["rejected"])
-    return {"imported": len(docs), "rejected": result["rejected"], "rate_pct": round(len(docs) / total * 100, 1) if total else 0}
+    importados = {d["ticker"] for d in docs}
+    # linhas em que 'ponto de milhar' foi lido como milhar (5.000 → 5000): o usuário confere se era isso mesmo
+    conferir = [m for m in result["milhar_sem_virgula"] if m["ticker"] in importados]
+    return {"imported": len(docs), "rejected": result["rejected"], "rate_pct": round(len(docs) / total * 100, 1) if total else 0,
+            "conferir_milhar": conferir}
