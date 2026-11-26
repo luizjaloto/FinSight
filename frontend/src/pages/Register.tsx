@@ -18,7 +18,7 @@ export default function Register() {
     e.preventDefault();
     setErro("");
     if (f.password.length < 8) return setErro("A senha precisa ter pelo menos 8 caracteres.");
-    if (bytes > 72) return setErro("A senha pode ter no máximo 72 bytes (cerca de 72 letras sem acento).");
+    if (bytes > 72) return setErro("Senha longa demais. Use até 72 caracteres (acentos e emojis contam mais).");
     if (!f.accept_terms) return setErro("É preciso aceitar o termo de privacidade.");
     setEnviando(true);
     try {

@@ -53,7 +53,7 @@ export default function Glossario() {
       <div className="card">
         <div className="input-icon">
           <Icon name="busca" />
-          <input placeholder="Buscar termo (ex.: IPCA+, liquidez, patrimonio)" value={busca} onChange={(e) => setBusca(e.target.value)}
+          <input placeholder="Buscar termo (ex.: IPCA+, liquidez, patrimônio)" value={busca} onChange={(e) => setBusca(e.target.value)}
                  aria-label="Buscar termo" />
         </div>
         <div className="letras" role="group" aria-label="Filtrar pela letra inicial">

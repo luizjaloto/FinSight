@@ -21,13 +21,22 @@ export function parseBR(raw: string): number {
   return Number(s);
 }
 
+/** Diferença entre duas taxas é em pontos percentuais: "1,50 ponto percentual". */
+const pontosPercentuais = (v: number) =>
+  `${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ponto percentual`;
+
 /** Frase simples comparando a carteira com uma referência. */
 export function compareText(carteira: number, referencia: number, nome: string): string {
   const diff = carteira - referencia;
   if (Math.abs(diff) < 0.05) return `Sua carteira rendeu praticamente o mesmo que o ${nome}.`;
   return diff > 0
-    ? `Sua carteira rendeu ${pct(diff)} a mais que o ${nome} no mesmo período.`
-    : `Sua carteira rendeu ${pct(-diff)} a menos que o ${nome} no mesmo período.`;
+    ? `Sua carteira rendeu ${pontosPercentuais(diff)} a mais que o ${nome} no mesmo período.`
+    : `Sua carteira rendeu ${pontosPercentuais(-diff)} a menos que o ${nome} no mesmo período.`;
+}
+
+/** Número com a palavra certa no singular ou no plural: "1 aplicação", "3 aplicações". */
+export function plural(n: number, singular: string, plural: string): string {
+  return `${n.toLocaleString("pt-BR")} ${n === 1 ? singular : plural}`;
 }
 
 /**
