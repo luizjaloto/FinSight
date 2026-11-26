@@ -73,6 +73,7 @@ export default function Dashboard() {
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [vista, setVista] = useState<"grafico" | "tabela">("grafico");
   const [ocultos, setOcultos] = useState<string[]>([]);
+  const [celular, setCelular] = useState(() => window.matchMedia?.("(max-width: 560px)").matches ?? false);
   const toast = useToast();
   const nome = (localStorage.getItem("finsight_name") ?? "").split(" ")[0];
 
@@ -96,6 +97,13 @@ export default function Dashboard() {
   useEffect(() => {
     const id = window.setInterval(() => setAgora(Date.now()), 30_000);
     return () => window.clearInterval(id);
+  }, []);
+  useEffect(() => {
+    const mql = window.matchMedia?.("(max-width: 560px)");
+    if (!mql) return;
+    const aoMudar = (e: MediaQueryListEvent) => setCelular(e.matches);
+    mql.addEventListener("change", aoMudar);
+    return () => mql.removeEventListener("change", aoMudar);
   }, []);
 
   const ativos = useMemo(() => (d ? d.ativos.filter((a) => filtro === "todos" || a.type === filtro) : []), [d, filtro]);
@@ -268,46 +276,86 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
-        <div className="table-wrap" tabIndex={0} role="region" aria-label="Tabela das suas aplicações">
-          <table>
-            <caption>{ativos.length} aplicação(ões) {filtro === "todos" ? "" : `do tipo selecionado`}</caption>
-            <thead>
-              <tr><th scope="col">Aplicação</th><th scope="col">Tipo</th><th scope="col">Aplicado</th><th scope="col">Hoje</th>
-                <th scope="col">Rendimento</th><th scope="col">Peso na carteira</th></tr>
-            </thead>
-            <tbody>
-              {ativos.map((a) => (
-                <tr key={a.id}>
-                  <th scope="row">
-                    <span className="ativo-nome">
-                      <span className="bubble b1" style={{ width: 38, height: 38 }}><Icon name={ICONE_TIPO[a.type] ?? "carteira"} size={18} /></span>
-                      <span>
-                        {a.ticker ?? a.name}{a.quote_missing && " *"}
-                        <small>{a.ticker ? a.name : a.status === "vencido" ? "Vencido – não rende mais" : "Renda fixa"}</small>
-                      </span>
+        {celular ? (
+          <ul className="ativos-cartoes" aria-label="Suas aplicações">
+            {ativos.map((a) => (
+              <li key={a.id} className="ativo-cartao">
+                <div className="ativo-cartao-topo">
+                  <span className="ativo-nome">
+                    <span className="bubble b1" style={{ width: 38, height: 38 }}><Icon name={ICONE_TIPO[a.type] ?? "carteira"} size={18} /></span>
+                    <span>
+                      {a.ticker ?? a.name}{a.quote_missing && " *"}
+                      <small>{a.ticker ? a.name : a.status === "vencido" ? "Vencido – não rende mais" : "Renda fixa"}</small>
                     </span>
-                  </th>
-                  <td><span className={`tag tag-${a.type}`}>{a.class_label}</span></td>
-                  {a.calc_error || a.current == null || a.return_pct == null || a.peso_pct == null ? (
-                    <td colSpan={4} className="neg">Erro de cálculo: confira os dados desta aplicação (fora dos totais)</td>
-                  ) : (
-                    <>
-                      <td>{brl(a.invested)}</td>
-                      <td><strong>{brl(a.current)}</strong></td>
-                      <td className={a.return_pct >= 0 ? "pos" : "neg"}>{a.return_pct >= 0 ? "▲" : "▼"} {pct(a.return_pct)}</td>
-                      <td>
-                        <span className="peso">
-                          <span className="meter"><span style={{ width: `${Math.min(a.peso_pct, 100)}%` }} /></span>
-                          {pct(a.peso_pct, 1)}
+                  </span>
+                  <span className={`tag tag-${a.type}`}>{a.class_label}</span>
+                </div>
+                {a.calc_error || a.current == null || a.return_pct == null || a.peso_pct == null ? (
+                  <p className="neg" style={{ margin: 0 }}>Erro de cálculo: confira os dados desta aplicação (fora dos totais)</p>
+                ) : (
+                  <div className="ativo-cartao-dados">
+                    <div>
+                      <span className="rotulo">Valor hoje</span>
+                      <strong>{brl(a.current)}</strong>
+                    </div>
+                    <div>
+                      <span className="rotulo">Rendimento</span>
+                      <span className={a.return_pct >= 0 ? "pos" : "neg"}>{a.return_pct >= 0 ? "▲" : "▼"} {pct(a.return_pct)}</span>
+                    </div>
+                    <div className="ativo-cartao-peso">
+                      <span className="rotulo">Peso na carteira</span>
+                      <span className="peso">
+                        <span className="meter"><span style={{ width: `${Math.min(a.peso_pct, 100)}%` }} /></span>
+                        {pct(a.peso_pct, 1)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Tabela das suas aplicações">
+            <table>
+              <caption>{ativos.length} aplicação(ões) {filtro === "todos" ? "" : `do tipo selecionado`}</caption>
+              <thead>
+                <tr><th scope="col">Aplicação</th><th scope="col">Tipo</th><th scope="col">Aplicado</th><th scope="col">Hoje</th>
+                  <th scope="col">Rendimento</th><th scope="col">Peso na carteira</th></tr>
+              </thead>
+              <tbody>
+                {ativos.map((a) => (
+                  <tr key={a.id}>
+                    <th scope="row">
+                      <span className="ativo-nome">
+                        <span className="bubble b1" style={{ width: 38, height: 38 }}><Icon name={ICONE_TIPO[a.type] ?? "carteira"} size={18} /></span>
+                        <span>
+                          {a.ticker ?? a.name}{a.quote_missing && " *"}
+                          <small>{a.ticker ? a.name : a.status === "vencido" ? "Vencido – não rende mais" : "Renda fixa"}</small>
                         </span>
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                      </span>
+                    </th>
+                    <td><span className={`tag tag-${a.type}`}>{a.class_label}</span></td>
+                    {a.calc_error || a.current == null || a.return_pct == null || a.peso_pct == null ? (
+                      <td colSpan={4} className="neg">Erro de cálculo: confira os dados desta aplicação (fora dos totais)</td>
+                    ) : (
+                      <>
+                        <td>{brl(a.invested)}</td>
+                        <td><strong>{brl(a.current)}</strong></td>
+                        <td className={a.return_pct >= 0 ? "pos" : "neg"}>{a.return_pct >= 0 ? "▲" : "▼"} {pct(a.return_pct)}</td>
+                        <td>
+                          <span className="peso">
+                            <span className="meter"><span style={{ width: `${Math.min(a.peso_pct, 100)}%` }} /></span>
+                            {pct(a.peso_pct, 1)}
+                          </span>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         <div className="form-actions" style={{ marginTop: 14 }}>
           <Link className="btn btn-soft btn-sm" to="/carteira"><Icon name="carteira" size={16} /> Gerenciar carteira</Link>
         </div>

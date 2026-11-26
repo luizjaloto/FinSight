@@ -249,6 +249,13 @@ tr:hover td, tr:hover tbody th, tbody tr:hover th { background: color-mix(in srg
 .neg { color: var(--vermelho); font-weight: 700; }
 .peso { display: flex; align-items: center; gap: 8px; min-width: 120px; }
 .peso .meter { flex: 1; height: 8px; }
+.ativos-cartoes { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.ativo-cartao { border: 1px solid var(--borda); border-radius: 14px; padding: 14px; background: var(--cartao); display: grid; gap: 12px; }
+.ativo-cartao-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.ativo-cartao-dados { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ativo-cartao-dados > div { display: flex; flex-direction: column; gap: 2px; }
+.ativo-cartao-dados .rotulo { font-size: 0.875rem; color: var(--suave); }
+.ativo-cartao-peso { grid-column: 1 / -1; }
 
 /* ---------- formulários ---------- */
 label { display: flex; flex-direction: column; gap: 6px; font-weight: 650; font-size: 1rem; }
