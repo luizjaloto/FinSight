@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { api, type AssetType, type Dashboard as D } from "../api";
+import { api, type Alerta, type AssetType, type Dashboard as D } from "../api";
 import AlertCard from "../components/AlertCard";
 import Help from "../components/Help";
 import Icon, { type IconName } from "../components/Icon";
@@ -18,6 +18,18 @@ const FILTROS: { id: Filtro; rotulo: string }[] = [
   { id: "acao", rotulo: "Ações" },
   { id: "fii", rotulo: "FIIs" },
 ];
+
+function alvoDoAlerta(a: Alerta): string {
+  const extra = a as Alerta & { ticker?: string | null; name?: string | null };
+  if (extra.ticker) return extra.ticker;
+  if (extra.name) return extra.name;
+  if (a.kind === "concentracao") return a.title.match(/\(([^()]+)\)\s*$/)?.[1] ?? a.title;
+  if (a.kind === "vencido") return a.title.match(/^(.+)\s+venceu em\s+/)?.[1] ?? a.title;
+  if (a.kind === "vencimento") return a.title.match(/^(.+)\s+vence em\s+/)?.[1] ?? a.title;
+  if (a.kind === "cotacao") return a.title.match(/^Cotação de\s+(.+)\s+indisponível/)?.[1] ?? a.title;
+  if (a.kind === "erro_calculo") return a.title.replace(/^Não foi possível calcular:\s*/, "");
+  return a.kind;
+}
 
 function Carregando() {
   return (
@@ -126,7 +138,14 @@ export default function Dashboard() {
     { nome: "CDI", valor: d.cdi_periodo_pct },
     { nome: "Inflação (IPCA)", valor: d.ipca_periodo_pct },
   ];
-  const alertas = d.alertas.filter((a) => !ocultos.includes(a.title));
+  const contagemChave = new Map<string, number>();
+  const alertasComChave = d.alertas.map((a) => {
+    const base = `${a.kind}:${alvoDoAlerta(a)}`;
+    const n = contagemChave.get(base) ?? 0;
+    contagemChave.set(base, n + 1);
+    return { a, chave: n === 0 ? base : `${base}#${n}` };
+  });
+  const alertas = alertasComChave.filter((x) => !ocultos.includes(x.chave));
   const vencendo = d.alertas.filter((a) => a.kind === "vencimento").length;
   const minutos = atualizadoEm ? Math.max(0, Math.floor((agora - atualizadoEm) / 60_000)) : 0;
 
@@ -198,7 +217,7 @@ export default function Dashboard() {
             )}
           </div>
           {alertas.length === 0 && <p className="muted">Você já leu todos os avisos.</p>}
-          {alertas.map((a) => <AlertCard key={a.title} a={a} onOcultar={() => setOcultos((o) => [...o, a.title])} />)}
+          {alertas.map(({ a, chave }) => <AlertCard key={chave} a={a} onOcultar={() => setOcultos((o) => [...o, chave])} />)}
         </section>
       )}
 
