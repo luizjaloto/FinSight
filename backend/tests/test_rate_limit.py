@@ -199,3 +199,35 @@ def test_contador_atomico_em_mongodb_real(relogio):
     finally:
         cliente.drop_database("finsight_teste_rate_limit")
         cliente.close()
+
+
+def test_login_em_paralelo_pela_rota_nao_passa_de_cinco_tentativas(client, auth, banco_limpo, monkeypatch):
+    """P0-5: a checagem de bloqueio acontece antes da verificação da senha (bcrypt é lento). Se a tentativa só
+    fosse contada depois da falha, as 30 simultâneas passariam pela checagem e todas teriam direito à senha."""
+    import time
+
+    from app.routers import auth as rota
+
+    verificadas = []
+
+    def verificacao_lenta(user, senha):
+        verificadas.append(senha)
+        time.sleep(0.3)
+        return False
+
+    monkeypatch.setattr(rota, "verify_login", verificacao_lenta)
+    codigos: list[int] = []
+    _em_paralelo(lambda: codigos.append(_login(client).status_code), 30)
+    assert codigos.count(401) <= 5
+    assert codigos.count(429) >= 25
+    assert len(verificadas) <= 5
+
+
+def test_login_certo_nao_gasta_tentativa(client, auth, relogio, banco_limpo):
+    """Contar a tentativa antes de verificar não pode punir quem acerta: só falhas contam."""
+    for _ in range(4):
+        assert _login(client).status_code == 401
+    for _ in range(10):
+        assert _login(client, senha="senha-forte-1").status_code == 200
+    for _ in range(4):
+        assert _login(client).status_code == 401  # o contador voltou a zero no acerto

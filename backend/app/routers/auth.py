@@ -35,10 +35,10 @@ def register(body: RegisterIn, request: Request):
     email_key = rate_limit.key("register:email", body.email)
     try:
         rate_limit.ensure_allowed(db, [ip_key, email_key])
+        rate_limit.hit_ou_bloqueia(db, ip_key, rate_limit.REGISTER_IP)
+        rate_limit.hit_ou_bloqueia(db, email_key, rate_limit.REGISTER_EMAIL)
     except rate_limit.RateLimited as e:
         raise _too_many(e)
-    rate_limit.hit(db, ip_key, rate_limit.REGISTER_IP)
-    rate_limit.hit(db, email_key, rate_limit.REGISTER_EMAIL)
     if not body.accept_terms:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "É preciso aceitar o termo de privacidade para criar a conta.")
     try:
@@ -69,16 +69,18 @@ def login(body: LoginIn, request: Request):
     email_key = rate_limit.key("login:email", body.email)
     try:
         rate_limit.ensure_allowed(db, [email_key, ip_key])
+        # a tentativa é contada na entrada: pedidos simultâneos não passam todos pela checagem acima (P0-5)
+        rate_limit.hit_ou_bloqueia(db, email_key, rate_limit.LOGIN_EMAIL)
+        rate_limit.hit_ou_bloqueia(db, ip_key, rate_limit.LOGIN_IP)
     except rate_limit.RateLimited as e:
         raise _too_many(e)
     user = db.users.find_one({"email": body.email.lower()})
     # mensagem genérica e tempo constante: não revela se o e-mail existe (RF02, S1)
     ok = verify_login(user, body.password)  # roda o bcrypt mesmo se o e-mail não existir
     if user is None or not ok:
-        rate_limit.hit(db, email_key, rate_limit.LOGIN_EMAIL)
-        rate_limit.hit(db, ip_key, rate_limit.LOGIN_IP)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "E-mail ou senha incorretos.")
     rate_limit.reset(db, email_key)
+    rate_limit.devolve(db, ip_key)
     return TokenOut(access_token=create_token(user["_id"]), name=user["name"])
 
 
