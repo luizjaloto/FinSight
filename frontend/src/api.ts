@@ -63,22 +63,48 @@ export function setSession(token: string | null, name?: string) {
   }
 }
 
+/** Mensagens de validação do Pydantic chegam em inglês. Traduzimos as mais comuns; o resto segue como veio. */
+const TRADUCOES: [RegExp, string | ((m: RegExpMatchArray) => string)][] = [
+  [/72 bytes/, "Senha longa demais. Use até 72 caracteres (acentos e emojis contam mais)."],
+  [/value is not a valid email address/i, "E-mail inválido. Confira o endereço."],
+  [/string should have at least (\d+) characters?/i, (m) => `Texto curto demais. Use pelo menos ${m[1]} caracteres.`],
+  [/string should have at most (\d+) characters?/i, (m) => `Texto longo demais. Use no máximo ${m[1]} caracteres.`],
+  [/field required/i, "Preencha este campo."],
+  [/input should be a valid (number|integer)|input should be a finite number/i, "Digite um número válido."],
+  [/input should be a valid date/i, "Informe uma data válida."],
+  [/input should be greater than 0/i, "O valor precisa ser maior que zero."],
+];
+
+export function traduzirErro(msg: string): string {
+  for (const [padrao, texto] of TRADUCOES) {
+    const m = msg.match(padrao);
+    if (m) return typeof texto === "function" ? texto(m) : texto;
+  }
+  return msg;
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = { ...(init.headers as Record<string, string>) };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   if (init.body && !(init.body instanceof FormData)) headers["Content-Type"] = "application/json";
-  const res = await fetch(`${BASE}${path}`, { ...init, headers });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, { ...init, headers });
+  } catch {
+    throw new Error("Não conseguimos falar com o servidor. Confira sua internet e tente de novo.");
+  }
   if (res.status === 401 && token) {
     setSession(null);
-    window.location.href = "/login";
+    window.location.href = "/login?expirou=1";
   }
   if (!res.ok) {
     let msg = "Algo deu errado. Tente novamente.";
     try {
       const body = await res.json();
-      if (typeof body.detail === "string") msg = body.detail;
-      else if (Array.isArray(body.detail)) msg = body.detail.map((d: { msg: string }) => d.msg.replace("Value error, ", "")).join(" ");
+      if (typeof body.detail === "string") msg = traduzirErro(body.detail);
+      else if (Array.isArray(body.detail))
+        msg = body.detail.map((d: { msg: string }) => traduzirErro(d.msg.replace("Value error, ", ""))).join(" ");
     } catch {
       /* resposta sem corpo */
     }

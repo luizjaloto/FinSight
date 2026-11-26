@@ -62,11 +62,11 @@ def test_excluir_conta_remove_tudo(client, auth):
     start = (date.today() - timedelta(days=30)).isoformat()
     client.post("/portfolio/assets", headers=auth, json={"type": "acao", "name": "Petrobras", "ticker": "PETR4", "quantity": 10,
                                                           "avg_price": 30, "invested": 300, "start_date": start})
-    client.get("/dashboard", headers=auth)  # gera alertas
     from app.db import get_db
 
     db = get_db()
     uid = db.users.find_one({"email": "teste@finsight.app"})["_id"]
+    db.alerts.insert_one({"user_id": uid, "kind": "legado"})  # alerta gravado por versão antiga do painel
     assert db.alerts.count_documents({"user_id": uid}) > 0
     assert client.delete("/auth/me", headers=auth).status_code == 204
     assert db.users.count_documents({"_id": uid}) == 0

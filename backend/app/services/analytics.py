@@ -110,7 +110,7 @@ def alerts(items: list[dict], total: float, today: date, limit: float, days: int
                 out.append({
                     "kind": "vencimento",
                     "level": "info",
-                    "title": f"{it['name']} vence em {left} dia(s) ({mat_d.strftime('%d/%m/%Y')})",
+                    "title": f"{it['name']} vence em {left} {'dia' if left == 1 else 'dias'} ({mat_d.strftime('%d/%m/%Y')})",
                     "text": "No vencimento, o valor volta para a sua conta. Converse com seu gerente se tiver dúvidas sobre o que fazer.",
                     "why": "Aplicações de renda fixa têm data de vencimento. Depois dela, o dinheiro deixa de render nas mesmas condições.",
                 })

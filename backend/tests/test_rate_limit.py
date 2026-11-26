@@ -1,4 +1,6 @@
 """S2 – limite de tentativas em /auth/login e /auth/register, por e-mail e por IP."""
+import os
+import threading
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -10,8 +12,12 @@ EMAIL = "teste@finsight.app"
 
 @pytest.fixture
 def relogio(monkeypatch):
-    """Relógio controlável: começa num instante fixo e avança quando o teste pede."""
-    estado = {"agora": datetime(2026, 11, 24, 15, 0, tzinfo=UTC)}
+    """Relógio controlável: começa agora e avança quando o teste pede.
+
+    Começa no relógio real de propósito: o índice TTL de rate_limits (expires_at) é avaliado pelo relógio real,
+    então um instante fixo no passado apagaria o contador logo no primeiro acesso.
+    """
+    estado = {"agora": datetime.now(UTC).replace(microsecond=0)}
     monkeypatch.setattr(clock, "_now", lambda: estado["agora"])
 
     def avancar(segundos):
@@ -87,3 +93,109 @@ def test_rate_limit_nao_guarda_email_nem_ip_em_texto(client, auth, relogio):
     _login(client)
     chaves = [d["_id"] for d in get_db().rate_limits.find()]
     assert chaves and not any(EMAIL in k or "testclient" in k for k in chaves)
+
+
+def test_quarta_tentativa_ainda_nao_bloqueia(client, auth, relogio):
+    for _ in range(4):
+        assert _login(client).status_code == 401
+    assert _login(client, senha="senha-forte-1").status_code == 200  # ainda dentro do limite de 5
+
+
+@pytest.fixture
+def banco_limpo():
+    """Zera os contadores: o mongomock é compartilhado entre testes, e um bloqueio antigo contaminaria o seguinte."""
+    from app.db import get_db
+
+    db = get_db()
+    db.rate_limits.delete_many({})
+    return db
+
+
+def _em_paralelo(tentativa, quantidade: int) -> None:
+    """Dispara as tentativas ao mesmo tempo: a barreira faz todas as threads partirem juntas."""
+    barreira = threading.Barrier(quantidade)
+
+    def corre():
+        barreira.wait()
+        tentativa()
+
+    fios = [threading.Thread(target=corre) for _ in range(quantidade)]
+    for fio in fios:
+        fio.start()
+    for fio in fios:
+        fio.join()
+
+
+def test_trinta_tentativas_em_paralelo_bloqueiam_a_partir_da_quinta(relogio, banco_limpo):
+    """P0-5: falhas simultâneas não se perdem. Com o antigo 'lê, soma e grava', o contador não avançava."""
+    from app.services import rate_limit
+
+    db = banco_limpo
+    k = rate_limit.key("login:email", EMAIL)
+    _em_paralelo(lambda: rate_limit.hit(db, k, rate_limit.LOGIN_EMAIL), 30)
+    with pytest.raises(rate_limit.RateLimited):
+        rate_limit.ensure_allowed(db, [k])
+    assert db.rate_limits.find_one({"_id": k})["strikes"] >= 1
+
+
+class _LeituraSincronizada:
+    """Espera todas as threads terminarem de ler antes de liberar a primeira gravação.
+
+    Isso força o pior intercalamento para 'ler, somar, gravar': todas leem o mesmo valor antes de qualquer escrita.
+    """
+
+    def __init__(self, colecao, barreira):
+        self._colecao = colecao
+        self._barreira = barreira
+
+    def find_one(self, *args, **kwargs):
+        documento = self._colecao.find_one(*args, **kwargs)
+        self._barreira.wait()
+        return documento
+
+    def __getattr__(self, nome):
+        return getattr(self._colecao, nome)
+
+
+class _BancoComLeituraSincronizada:
+    def __init__(self, db, barreira):
+        self._db = db
+        self.rate_limits = _LeituraSincronizada(db.rate_limits, barreira)
+
+    def __getattr__(self, nome):
+        return getattr(self._db, nome)
+
+
+def test_bloqueio_nao_depende_de_ler_antes_de_gravar(relogio, banco_limpo):
+    """Com o padrão 'lê, soma, grava', as 30 threads somariam sobre count=0 e nenhuma chegaria ao limite.
+
+    Sem leitura prévia, o resultado não depende do intercalamento.
+    """
+    from app.services import rate_limit
+
+    db = _BancoComLeituraSincronizada(banco_limpo, threading.Barrier(30, timeout=10))
+    k = rate_limit.key("login:email", EMAIL)
+    _em_paralelo(lambda: rate_limit.hit(db, k, rate_limit.LOGIN_EMAIL), 30)
+    with pytest.raises(rate_limit.RateLimited):
+        rate_limit.ensure_allowed(banco_limpo, [k])  # a verificação final não passa pela barreira
+
+
+@pytest.mark.skipif(not os.getenv("MONGO_TEST_URI"),
+                    reason="defina MONGO_TEST_URI para provar a atomicidade em um MongoDB de verdade")
+def test_contador_atomico_em_mongodb_real(relogio):
+    """Mesmo teste de 30 tentativas, contra um servidor real (o mongomock não garante atomicidade do servidor)."""
+    from pymongo import MongoClient
+
+    from app.services import rate_limit
+
+    cliente = MongoClient(os.environ["MONGO_TEST_URI"], serverSelectionTimeoutMS=5000)
+    db = cliente["finsight_teste_rate_limit"]
+    try:
+        db.rate_limits.delete_many({})
+        k = rate_limit.key("login:email", EMAIL)
+        _em_paralelo(lambda: rate_limit.hit(db, k, rate_limit.LOGIN_EMAIL), 30)
+        with pytest.raises(rate_limit.RateLimited):
+            rate_limit.ensure_allowed(db, [k])
+    finally:
+        cliente.drop_database("finsight_teste_rate_limit")
+        cliente.close()

@@ -2,7 +2,8 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from starlette.datastructures import UploadFile
 
 from .. import clock
 from ..db import get_db
@@ -12,6 +13,9 @@ from ..services.csv_import import parse_b3_csv
 
 router = APIRouter(prefix="/portfolio", tags=["carteira"])
 MAX_ASSETS = 50
+LIMITE_CSV_BYTES = 1_000_000
+MARGEM_FORMULARIO_BYTES = 64 * 1024  # cabeçalhos e separadores do multipart somam bem menos que isso
+MSG_ARQUIVO_GRANDE = "Arquivo muito grande (máximo 1 MB)."
 
 
 def _assets(db, user_id: str) -> list[dict]:
@@ -48,21 +52,44 @@ def remove_asset(asset_id: str, user_id: str = Depends(current_user_id)):
 
 
 @router.post("/import-csv")
-async def import_csv(file: Annotated[UploadFile, File()], user_id: Annotated[str, Depends(current_user_id)]):
-    content = await file.read()
-    if len(content) > 1_000_000:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Arquivo muito grande (máximo 1 MB).")
+async def import_csv(request: Request, user_id: Annotated[str, Depends(current_user_id)]):
+    # P0-4: o formulário inteiro é gravado em disco antes de a rota rodar (o Starlette não limita arquivos),
+    # então o tamanho é conferido no cabeçalho antes de request.form() e, de novo, na leitura do arquivo.
+    tamanho = request.headers.get("content-length", "")
+    if tamanho.isdigit() and int(tamanho) > LIMITE_CSV_BYTES + MARGEM_FORMULARIO_BYTES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, MSG_ARQUIVO_GRANDE)
+    form = await request.form()
+    try:
+        arquivo = form.get("file")
+        if not isinstance(arquivo, UploadFile):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Envie o arquivo CSV no campo 'file'.")
+        content = await arquivo.read(LIMITE_CSV_BYTES + 1)
+    finally:
+        await form.close()
+    if len(content) > LIMITE_CSV_BYTES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, MSG_ARQUIVO_GRANDE)
     result = parse_b3_csv(content, clock.today_br())
+    db = get_db()
+    # P3-c: um ticker que já está na carteira não é importado de novo nem altera a aplicação existente.
+    # Assim, importar o mesmo arquivo duas vezes não duplica nada. Para atualizar uma posição, remova-a e importe de novo.
+    atuais = _assets(db, user_id)
+    existentes = {a.get("ticker") for a in atuais}
+    ja_na_carteira = [a["ticker"] for a in result["assets"] if a["ticker"] in existentes]
     docs = []
     for a in result["assets"]:
+        if a["ticker"] in existentes:
+            continue
         try:
             docs.append(_to_doc(AssetIn(**a)))
         except ValueError as e:
             result["rejected"].append({"line": None, "reason": f"{a.get('ticker')}: {e}"})
-    db = get_db()
-    if len(_assets(db, user_id)) + len(docs) > MAX_ASSETS:
+    if len(atuais) + len(docs) > MAX_ASSETS:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"A importação passaria do limite de {MAX_ASSETS} aplicações.")
     if docs:
         db.portfolios.update_one({"user_id": user_id}, {"$push": {"assets": {"$each": docs}}}, upsert=True)
     total = len(docs) + len(result["rejected"])
-    return {"imported": len(docs), "rejected": result["rejected"], "rate_pct": round(len(docs) / total * 100, 1) if total else 0}
+    importados = {d["ticker"] for d in docs}
+    # linhas em que 'ponto de milhar' foi lido como milhar (5.000 → 5000): o usuário confere se era isso mesmo
+    conferir = [m for m in result["milhar_sem_virgula"] if m["ticker"] in importados]
+    return {"imported": len(docs), "rejected": result["rejected"], "rate_pct": round(len(docs) / total * 100, 1) if total else 0,
+            "conferir_milhar": conferir, "ja_na_carteira": ja_na_carteira}

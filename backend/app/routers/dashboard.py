@@ -1,5 +1,5 @@
 """Painel, indicadores do Banco Central e glossário (RF07, RF08, RF09, RF10)."""
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -9,7 +9,7 @@ from ..db import get_db
 from ..glossary import GLOSSARY
 from ..security import current_user_id
 from ..services import analytics, bcb
-from ..services.quotes import get_quote
+from ..services.quotes import get_quotes
 
 router = APIRouter(tags=["painel"])
 
@@ -53,12 +53,8 @@ def dashboard(user_id: str = Depends(current_user_id)):
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Indicadores do Banco Central indisponíveis no momento.")
     cdi, ipca = cdi_s.values, ipca_s.values
 
-    prices, quotes = {}, {}
-    for a in assets:
-        tk = a.get("ticker")
-        if a["type"] != "renda_fixa" and tk and tk not in quotes:
-            quotes[tk] = get_quote(db, tk)
-            prices[tk] = quotes[tk]["price"]
+    cotacoes = get_quotes(db, [a["ticker"] for a in assets if a["type"] != "renda_fixa" and a.get("ticker")])
+    prices = {tk: q["price"] for tk, q in cotacoes.items()}
 
     data = analytics.build_dashboard(assets, cdi, ipca, prices, today,
                                      limit=settings.concentration_limit, days=settings.maturity_alert_days)
@@ -73,10 +69,7 @@ def dashboard(user_id: str = Depends(current_user_id)):
             "text": f"Os cálculos usam os últimos dados salvos do Banco Central (até {ultimo}). Tente de novo mais tarde.",
             "why": "O CDI e o IPCA vêm do site do Banco Central. Quando ele não responde, usamos a cópia mais recente que temos.",
         })
-    db.alerts.delete_many({"user_id": user_id})
-    if data["alertas"]:
-        now = datetime.now(UTC)
-        db.alerts.insert_many([dict(a, user_id=user_id, created_at=now) for a in data["alertas"]])
-    data["cotacoes"] = quotes
+    # GET não grava nada: os alertas são calculados a cada pedido e devolvidos na resposta
+    data["cotacoes"] = cotacoes
     data["aviso"] = AVISO
     return data

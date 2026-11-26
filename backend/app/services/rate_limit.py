@@ -10,6 +10,8 @@ import math
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+from pymongo import ReturnDocument
+
 from .. import clock
 
 
@@ -69,27 +71,46 @@ def ensure_allowed(db, keys: list[str]) -> None:
             raise RateLimited(max(1, math.ceil((_aware(doc["blocked_until"]) - now).total_seconds())))
 
 
+def _strikes_vigentes(doc: dict, now: datetime) -> int:
+    """Estouros recentes (dentro da memória de 24 h). Depois disso, o atraso volta ao começo."""
+    ultimo = doc.get("last_strike")
+    if ultimo is None or now - _aware(ultimo) > STRIKE_MEMORY:
+        return 0
+    return doc.get("strikes", 0)
+
+
 def hit(db, k: str, policy: Policy) -> None:
-    """Registra uma tentativa (falha de login ou pedido de cadastro). Bloqueia a chave ao estourar o limite."""
+    """Registra uma tentativa (falha de login ou pedido de cadastro). Bloqueia a chave ao estourar o limite.
+
+    Não há leitura antes da escrita: a contagem é um $inc feito pelo próprio MongoDB, então tentativas
+    simultâneas não se perdem (P0-5). Só a tentativa que devolve exatamente o limite registra o bloqueio;
+    as que chegam em seguida, com a chave já bloqueada, apenas são contadas.
+    """
     now = clock._now()
-    doc = db.rate_limits.find_one({"_id": k}) or {}
-    window_start = _aware(doc["window_start"]) if doc.get("window_start") else None
-    if window_start is None or now - window_start >= timedelta(seconds=policy.window_s):
-        count, window_start = 1, now
-    else:
-        count = doc.get("count", 0) + 1
-    strikes = doc.get("strikes", 0)
-    last_strike = _aware(doc["last_strike"]) if doc.get("last_strike") else None
-    if last_strike and now - last_strike > STRIKE_MEMORY:
-        strikes = 0
-    update = {"count": count, "window_start": window_start, "strikes": strikes,
-              "expires_at": now + STRIKE_MEMORY}
-    if count >= policy.limit:
-        strikes += 1
-        block = min(policy.base_block_s * 2 ** (strikes - 1), policy.max_block_s)
-        update.update(strikes=strikes, last_strike=now, blocked_until=now + timedelta(seconds=block),
-                      count=0, window_start=now)
-    db.rate_limits.update_one({"_id": k}, {"$set": update}, upsert=True)
+    # 1) janela vencida: abre outra. O filtro faz a troca só se a janela ainda estiver vencida.
+    db.rate_limits.update_one(
+        {"_id": k, "window_start": {"$lte": now - timedelta(seconds=policy.window_s)}},
+        {"$set": {"count": 0, "window_start": now}},
+    )
+    # 2) conta a tentativa e recebe o documento já atualizado pelo banco
+    doc = db.rate_limits.find_one_and_update(
+        {"_id": k},
+        {"$inc": {"count": 1},
+         "$set": {"expires_at": now + STRIKE_MEMORY},
+         "$setOnInsert": {"window_start": now, "strikes": 0}},
+        upsert=True,
+        return_document=ReturnDocument.AFTER,
+    )
+    if doc["count"] != policy.limit:
+        return
+    # 3) estouro: o atraso dobra a cada rodada, até o teto
+    strikes = _strikes_vigentes(doc, now) + 1
+    block = min(policy.base_block_s * 2 ** (strikes - 1), policy.max_block_s)
+    db.rate_limits.update_one(
+        {"_id": k},
+        {"$set": {"count": 0, "window_start": now, "strikes": strikes, "last_strike": now,
+                  "blocked_until": now + timedelta(seconds=block)}},
+    )
 
 
 def reset(db, k: str) -> None:

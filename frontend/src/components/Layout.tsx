@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { api, setSession } from "../api";
 import { iniciais } from "../format";
@@ -23,13 +24,24 @@ export function Logo() {
 function MenuUsuario({ nome }: { nome: string }) {
   const [aberto, setAberto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const botaoRef = useRef<HTMLButtonElement>(null);
+  const primeiroItemRef = useRef<HTMLButtonElement>(null);
+  const [confirmaExclusao, setConfirmaExclusao] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
   const nav = useNavigate();
   const toast = useToast();
 
   useEffect(() => {
     if (!aberto) return;
+    primeiroItemRef.current?.focus();
     const fora = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setAberto(false);
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && setAberto(false);
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setAberto(false);
+        botaoRef.current?.focus();
+      }
+    };
     document.addEventListener("mousedown", fora);
     document.addEventListener("keydown", esc);
     return () => {
@@ -37,6 +49,13 @@ function MenuUsuario({ nome }: { nome: string }) {
       document.removeEventListener("keydown", esc);
     };
   }, [aberto]);
+
+  useEffect(() => {
+    if (!confirmaExclusao) return;
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setConfirmaExclusao(false);
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [confirmaExclusao]);
 
   const sair = () => {
     setSession(null);
@@ -59,35 +78,57 @@ function MenuUsuario({ nome }: { nome: string }) {
     }
   };
 
-  const excluir = async () => {
+  const pedirExclusao = () => {
     setAberto(false);
-    if (!window.confirm("Excluir sua conta apaga todos os seus dados do FinSight, sem volta. Deseja continuar?")) return;
+    setConfirmaExclusao(true);
+  };
+
+  const excluirConta = async () => {
+    setExcluindo(true);
     try {
       await api.deleteAccount();
+      setConfirmaExclusao(false);
+      toast("Sua conta foi excluída.");
       sair();
     } catch (e) {
       toast((e as Error).message, "erro");
+    } finally {
+      setExcluindo(false);
     }
   };
 
   return (
     <div className="user-menu" ref={ref}>
-      <button className="user-btn" onClick={() => setAberto(!aberto)} aria-expanded={aberto} aria-haspopup="menu">
+      <button ref={botaoRef} type="button" className="user-btn" onClick={() => setAberto(!aberto)} aria-expanded={aberto}>
         <span className="avatar">{iniciais(nome)}</span>
         <span className="nome">{nome.split(" ")[0]}</span>
         <Icon name="seta" size={16} />
       </button>
       {aberto && (
-        <div className="menu" role="menu">
+        <div className="menu">
           <div className="menu-head">
             <strong>{nome}</strong>
             <br />
             <small>Seus dados ficam só na sua conta.</small>
           </div>
-          <button role="menuitem" onClick={exportar}><Icon name="download" /> Baixar meus dados</button>
-          <button role="menuitem" onClick={sair}><Icon name="sair" /> Sair</button>
-          <button role="menuitem" className="perigo" onClick={excluir}><Icon name="lixeira" /> Excluir minha conta</button>
+          <button ref={primeiroItemRef} type="button" onClick={exportar}><Icon name="download" /> Baixar meus dados</button>
+          <button type="button" onClick={sair}><Icon name="sair" /> Sair</button>
+          <button type="button" className="perigo" onClick={pedirExclusao}><Icon name="lixeira" /> Excluir minha conta</button>
         </div>
+      )}
+      {confirmaExclusao && createPortal(
+        <div className="modal-fundo">
+          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="titulo-exclusao" aria-describedby="texto-exclusao">
+            <h2 id="titulo-exclusao">Excluir sua conta?</h2>
+            <p id="texto-exclusao">Seus dados serão apagados e isso não pode ser desfeito. Quer baixar uma cópia antes?</p>
+            <div className="modal-acoes">
+              <button className="btn btn-ghost" onClick={exportar} disabled={excluindo}>Baixar meus dados</button>
+              <button className="btn btn-danger" onClick={excluirConta} disabled={excluindo}>Excluir conta</button>
+              <button className="btn btn-primary" onClick={() => setConfirmaExclusao(false)} autoFocus>Manter minha conta</button>
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
