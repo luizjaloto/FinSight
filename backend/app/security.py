@@ -7,6 +7,7 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from . import clock
 from .config import settings
 from .db import get_db
 from .models import MAX_PASSWORD_BYTES, MSG_SENHA_LONGA
@@ -53,17 +54,40 @@ def create_token(user_id: str) -> str:
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
+def _decodifica(token: str) -> dict:
+    try:
+        # S3: exp, iat, sub, iss e aud são obrigatórios; sem eles o token seria eterno ou de outro sistema
+        return jwt.decode(token, settings.jwt_secret, algorithms=["HS256"],
+                          audience=settings.jwt_audience, issuer=settings.jwt_issuer,
+                          options={"require": ["exp", "iat", "sub", "iss", "aud"]})
+    except jwt.PyJWTError:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sessão expirada. Faça login novamente.")
+
+
 def current_user_id(creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)]) -> str:
     if creds is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Faça login para continuar.")
-    try:
-        # S3: exp, iat, sub, iss e aud são obrigatórios; sem eles o token seria eterno ou de outro sistema
-        payload = jwt.decode(creds.credentials, settings.jwt_secret, algorithms=["HS256"],
-                             audience=settings.jwt_audience, issuer=settings.jwt_issuer,
-                             options={"require": ["exp", "iat", "sub", "iss", "aud"]})
-    except jwt.PyJWTError:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sessão expirada. Faça login novamente.")
+    payload = _decodifica(creds.credentials)
     user_id = payload.get("sub")
     if not user_id or get_db().users.find_one({"_id": user_id}, {"_id": 1}) is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Usuário não encontrado.")
+    return user_id
+
+
+# P3-e: excluir a conta e baixar os dados pedem um login feito há pouco tempo.
+MINUTOS_LOGIN_RECENTE = 5
+
+
+def current_user_id_recente(creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+                            user_id: Annotated[str, Depends(current_user_id)]) -> str:
+    """Como current_user_id, mas só aceita token emitido nos últimos 5 min.
+
+    Uma sessão deixada aberta por horas, ou um token copiado, não basta para apagar a conta nem para baixar
+    os dados. O usuário entra de novo e confirma a ação.
+    """
+    if creds is None:  # current_user_id já recusou a requisição; esta checagem só ajuda o tipo
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Faça login para continuar.")
+    emitido = datetime.fromtimestamp(_decodifica(creds.credentials)["iat"], UTC)
+    if clock._now() - emitido > timedelta(minutes=MINUTOS_LOGIN_RECENTE):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Por segurança, entre de novo para confirmar esta ação.")
     return user_id

@@ -13,6 +13,7 @@ from ..security import (
     PasswordTooLong,
     create_token,
     current_user_id,
+    current_user_id_recente,
     hash_password,
     verify_login,
 )
@@ -95,7 +96,7 @@ def me(user_id: Annotated[str, Depends(current_user_id)]):
 
 
 @router.get("/me/export")
-def export_data(user_id: Annotated[str, Depends(current_user_id)]):
+def export_data(user_id: Annotated[str, Depends(current_user_id_recente)]):
     """Exporta os dados do usuário (direito de acesso – LGPD)."""
     db = get_db()
     u = _user_or_401(db, user_id)
@@ -104,7 +105,7 @@ def export_data(user_id: Annotated[str, Depends(current_user_id)]):
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
-def delete_account(user_id: Annotated[str, Depends(current_user_id)]):
+def delete_account(user_id: Annotated[str, Depends(current_user_id_recente)]):
     """Remove o usuário e TODOS os seus documentos (correção do teste T10: alertas incluídos)."""
     db = get_db()
     db.portfolios.delete_many({"user_id": user_id})
