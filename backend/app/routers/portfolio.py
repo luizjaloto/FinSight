@@ -2,7 +2,8 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from starlette.datastructures import UploadFile
 
 from .. import clock
 from ..db import get_db
@@ -12,6 +13,9 @@ from ..services.csv_import import parse_b3_csv
 
 router = APIRouter(prefix="/portfolio", tags=["carteira"])
 MAX_ASSETS = 50
+LIMITE_CSV_BYTES = 1_000_000
+MARGEM_FORMULARIO_BYTES = 64 * 1024  # cabeçalhos e separadores do multipart somam bem menos que isso
+MSG_ARQUIVO_GRANDE = "Arquivo muito grande (máximo 1 MB)."
 
 
 def _assets(db, user_id: str) -> list[dict]:
@@ -48,10 +52,22 @@ def remove_asset(asset_id: str, user_id: str = Depends(current_user_id)):
 
 
 @router.post("/import-csv")
-async def import_csv(file: Annotated[UploadFile, File()], user_id: Annotated[str, Depends(current_user_id)]):
-    content = await file.read()
-    if len(content) > 1_000_000:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Arquivo muito grande (máximo 1 MB).")
+async def import_csv(request: Request, user_id: Annotated[str, Depends(current_user_id)]):
+    # P0-4: o formulário inteiro é gravado em disco antes de a rota rodar (o Starlette não limita arquivos),
+    # então o tamanho é conferido no cabeçalho antes de request.form() e, de novo, na leitura do arquivo.
+    tamanho = request.headers.get("content-length", "")
+    if tamanho.isdigit() and int(tamanho) > LIMITE_CSV_BYTES + MARGEM_FORMULARIO_BYTES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, MSG_ARQUIVO_GRANDE)
+    form = await request.form()
+    try:
+        arquivo = form.get("file")
+        if not isinstance(arquivo, UploadFile):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Envie o arquivo CSV no campo 'file'.")
+        content = await arquivo.read(LIMITE_CSV_BYTES + 1)
+    finally:
+        await form.close()
+    if len(content) > LIMITE_CSV_BYTES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, MSG_ARQUIVO_GRANDE)
     result = parse_b3_csv(content, clock.today_br())
     docs = []
     for a in result["assets"]:
