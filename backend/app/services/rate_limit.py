@@ -79,12 +79,14 @@ def _strikes_vigentes(doc: dict, now: datetime) -> int:
     return doc.get("strikes", 0)
 
 
-def hit(db, k: str, policy: Policy) -> None:
+def hit(db, k: str, policy: Policy) -> int:
     """Registra uma tentativa (falha de login ou pedido de cadastro). Bloqueia a chave ao estourar o limite.
 
     Não há leitura antes da escrita: a contagem é um $inc feito pelo próprio MongoDB, então tentativas
     simultâneas não se perdem (P0-5). Só a tentativa que devolve exatamente o limite registra o bloqueio;
     as que chegam em seguida, com a chave já bloqueada, apenas são contadas.
+
+    Devolve a contagem da janela depois desta tentativa (antes de um eventual zeramento pelo bloqueio).
     """
     now = clock._now()
     # 1) janela vencida: abre outra. O filtro faz a troca só se a janela ainda estiver vencida.
@@ -101,8 +103,9 @@ def hit(db, k: str, policy: Policy) -> None:
         upsert=True,
         return_document=ReturnDocument.AFTER,
     )
-    if doc["count"] != policy.limit:
-        return
+    contagem = doc["count"]
+    if contagem != policy.limit:
+        return contagem
     # 3) estouro: o atraso dobra a cada rodada, até o teto
     strikes = _strikes_vigentes(doc, now) + 1
     block = min(policy.base_block_s * 2 ** (strikes - 1), policy.max_block_s)
@@ -111,6 +114,26 @@ def hit(db, k: str, policy: Policy) -> None:
         {"$set": {"count": 0, "window_start": now, "strikes": strikes, "last_strike": now,
                   "blocked_until": now + timedelta(seconds=block)}},
     )
+    return contagem
+
+
+def hit_ou_bloqueia(db, k: str, policy: Policy) -> None:
+    """Conta a tentativa ANTES de ela ser processada e recusa as que passam do limite (P0-5).
+
+    A checagem de ensure_allowed acontece no início do pedido; com o bcrypt lento, dezenas de pedidos
+    simultâneos passariam por ela antes de qualquer falha ser gravada. Contando na entrada, só as primeiras
+    `limit` tentativas chegam a verificar a senha. Quem acerta devolve a tentativa com `devolve()`.
+    """
+    if hit(db, k, policy) > policy.limit:
+        doc = db.rate_limits.find_one({"_id": k}, {"blocked_until": 1}) or {}
+        ate = doc.get("blocked_until")
+        espera = math.ceil((_aware(ate) - clock._now()).total_seconds()) if ate else policy.base_block_s
+        raise RateLimited(max(1, espera))
+
+
+def devolve(db, k: str) -> None:
+    """Login certo: desfaz a contagem feita na entrada, para que só falhas gastem tentativas."""
+    db.rate_limits.update_one({"_id": k, "count": {"$gt": 0}}, {"$inc": {"count": -1}})
 
 
 def reset(db, k: str) -> None:
