@@ -69,6 +69,15 @@ def test_importacao_lista_linhas_lidas_como_milhar():
         (2, "PETR4", "quantidade", "5.000", 5000), (4, "VALE3", "preço", "61.300", 61300)]
 
 
+def test_tabela_de_casos_passa_pela_importacao():
+    """P0-1c: os casos da tabela do plano valem também no CSV da B3, onde o erro aparecia."""
+    casos = [("5.000", 5000), ("1.500", 1500), ("10.000", 10000), ("12.345.678", 12345678), ("5.000,00", 5000), ("0.5", 0.5)]
+    linhas = ["Código de Negociação;Quantidade;Preço de Fechamento"] + [f"PETR4;{texto};1" for texto, _ in casos]
+    r = parse_b3_csv(("\n".join(linhas) + "\n").encode(), HOJE)
+    assert [a["quantity"] for a in r["assets"]] == [valor for _, valor in casos]
+    assert [m["texto"] for m in r["milhar_sem_virgula"]] == ["5.000", "1.500", "10.000", "12.345.678"]
+
+
 def test_endpoint_informa_linhas_lidas_como_milhar(client, auth):
     txt = "Código de Negociação;Quantidade;Preço de Fechamento\nPETR4;5.000;38,00\nHGLG11;0.5;160,00\n"
     r = client.post("/portfolio/import-csv", headers=auth, files={"file": ("p.csv", txt.encode(), "text/csv")})
