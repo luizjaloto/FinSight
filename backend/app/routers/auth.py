@@ -8,7 +8,7 @@ from pymongo.errors import DuplicateKeyError
 
 from ..config import settings
 from ..db import get_db
-from ..models import LoginIn, RegisterIn, TokenOut
+from ..models import TERMOS_VERSAO, LoginIn, RegisterIn, TokenOut
 from ..security import (
     PasswordTooLong,
     create_token,
@@ -50,6 +50,7 @@ def register(body: RegisterIn, request: Request):
         "email": body.email.lower(),
         "password_hash": password_hash,
         "terms_accepted_at": datetime.now(UTC),
+        "terms_version": TERMOS_VERSAO,
         "created_at": datetime.now(UTC),
     }
     try:

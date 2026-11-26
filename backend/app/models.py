@@ -15,6 +15,10 @@ Indexer = Literal["cdi", "ipca"]
 TICKER_RE = re.compile(r"^[A-Z]{4}\d{1,2}[A-Z]?$")
 MSG_TICKER_INVALIDO = "Código de negociação inválido. Use o formato PETR4 ou HGLG11."
 
+# Versão do termo de privacidade aceito no cadastro (P3-d). Troque ao mudar o texto do termo, para saber
+# qual versão cada usuário aceitou.
+TERMOS_VERSAO = "1.0"
+
 # O bcrypt só considera os primeiros 72 BYTES da senha (o bcrypt 5 recusa o excedente com erro).
 MAX_PASSWORD_BYTES = 72
 MSG_SENHA_LONGA = (f"A senha pode ter no máximo {MAX_PASSWORD_BYTES} bytes: cerca de 72 letras sem acento. "
