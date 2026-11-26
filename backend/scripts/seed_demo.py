@@ -1,7 +1,8 @@
 """Cria o usuário de demonstração com uma carteira simulada.
 
 Uso (na pasta backend):  python -m scripts.seed_demo
-Login: demo@finsight.app  /  senha: definida em DEMO_PASSWORD no .env (padrão: Demo@2026)
+Login: demo@finsight.app  /  senha: definida em DEMO_PASSWORD no .env.
+Em desenvolvimento, sem DEMO_PASSWORD, usa Demo@2026. Em produção (ENV=production), DEMO_PASSWORD é obrigatória.
 """
 import os
 import sys
@@ -12,13 +13,24 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # permite: python scripts/seed_demo.py
 
 from app.clock import today_br
+from app.config import settings
 from app.db import ensure_indexes, get_db
 from app.security import hash_password
 
 EMAIL = "demo@finsight.app"
 
 
+def senha_da_demonstracao() -> str:
+    senha = os.getenv("DEMO_PASSWORD", "")  # vazio conta como ausente: nunca criar a conta sem senha
+    if senha:
+        return senha
+    if settings.env == "production":
+        sys.exit("Defina DEMO_PASSWORD no .env antes de criar a conta de demonstração em produção.")
+    return "Demo@2026"  # padrão só para desenvolvimento local
+
+
 def main() -> None:
+    senha = senha_da_demonstracao()
     db = get_db()
     ensure_indexes(db)
     old = db.users.find_one({"email": EMAIL})
@@ -28,7 +40,7 @@ def main() -> None:
         db.users.delete_one({"_id": old["_id"]})
     uid = uuid.uuid4().hex
     db.users.insert_one({"_id": uid, "name": "Roberto (demonstração)", "email": EMAIL,
-                         "password_hash": hash_password(os.getenv("DEMO_PASSWORD", "Demo@2026")),
+                         "password_hash": hash_password(senha),
                          "terms_accepted_at": datetime.now(UTC), "created_at": datetime.now(UTC)})
     today = today_br()
     d = lambda days: (today - timedelta(days=days)).isoformat()

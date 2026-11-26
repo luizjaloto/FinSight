@@ -13,7 +13,7 @@ import re
 import unicodedata
 from datetime import date
 
-TICKER_RE = re.compile(r"^[A-Z]{4}\d{1,2}[A-Z]?$")
+from ..models import TICKER_RE
 
 
 def _norm(s: str) -> str:

@@ -78,8 +78,8 @@ docker compose exec backend python scripts/seed_demo.py
 ```
 
 - Front-end: http://localhost:8080
-- API e documentação interativa: http://localhost:8000/docs
-- Usuário de demonstração: `demo@finsight.app` / senha `Demo@2026` (altere com `DEMO_PASSWORD`)
+- API: http://localhost:8000 (a documentação interativa fica desligada com `ENV=production`)
+- Usuário de demonstração: `demo@finsight.app`, com a senha definida em `DEMO_PASSWORD` no `.env`. Sem essa variável, o seed não cria a conta em produção. O botão que preenche o e-mail da demonstração no login só aparece com `VITE_DEMO=1` no build do front-end.
 
 ### Opção 2 – Sem Docker
 
