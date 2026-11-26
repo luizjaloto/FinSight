@@ -10,8 +10,12 @@ EMAIL = "teste@finsight.app"
 
 @pytest.fixture
 def relogio(monkeypatch):
-    """Relógio controlável: começa num instante fixo e avança quando o teste pede."""
-    estado = {"agora": datetime(2026, 11, 24, 15, 0, tzinfo=UTC)}
+    """Relógio controlável: começa no instante atual e avança quando o teste pede.
+
+    Não pode começar numa data fixa: o TTL do mongomock apaga documentos pelo relógio real,
+    e os contadores de tentativas expiravam sozinhos depois da data fixa (testes falhavam em dias posteriores).
+    """
+    estado = {"agora": datetime.now(UTC)}
     monkeypatch.setattr(clock, "_now", lambda: estado["agora"])
 
     def avancar(segundos):
