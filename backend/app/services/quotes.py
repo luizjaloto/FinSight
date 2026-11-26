@@ -4,6 +4,7 @@ Sem token, a brapi libera apenas alguns códigos de teste; com BRAPI_TOKEN no .e
 Se a cotação não estiver disponível, o painel usa o preço médio e avisa o usuário.
 """
 from datetime import UTC, datetime, timedelta
+from urllib.parse import quote
 
 import httpx
 
@@ -16,7 +17,8 @@ CACHE_MINUTES = 15
 def fetch_quote(ticker: str) -> float | None:
     params = {"token": settings.brapi_token} if settings.brapi_token else {}
     try:
-        r = httpx.get(BRAPI_URL.format(ticker=ticker), params=params, timeout=10)
+        # safe="" escapa também "/", "?" e "#": o ticker não pode mudar o caminho nem os parâmetros (P0-3)
+        r = httpx.get(BRAPI_URL.format(ticker=quote(ticker, safe="")), params=params, timeout=10)
         if r.status_code != 200:
             return None
         results = r.json().get("results") or []

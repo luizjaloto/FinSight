@@ -1,4 +1,5 @@
 """Esquemas de entrada e saída da API."""
+import re
 from datetime import date
 from typing import Literal
 
@@ -8,6 +9,11 @@ from . import clock
 
 AssetType = Literal["renda_fixa", "acao", "fii"]
 Indexer = Literal["cdi", "ipca"]
+
+# Código de negociação de ação ou FII (ex.: PETR4, HGLG11). Usado também pelo importador da B3 e pela
+# montagem da URL da API de cotações: nada fora desse formato pode chegar lá (P0-3).
+TICKER_RE = re.compile(r"^[A-Z]{4}\d{1,2}[A-Z]?$")
+MSG_TICKER_INVALIDO = "Código de negociação inválido. Use o formato PETR4 ou HGLG11."
 
 # O bcrypt só considera os primeiros 72 BYTES da senha (o bcrypt 5 recusa o excedente com erro).
 MAX_PASSWORD_BYTES = 72
@@ -104,6 +110,8 @@ class AssetIn(BaseModel):
             raise ValueError("Ações e FIIs não têm vencimento, indexador nem taxa.")
         if not self.ticker:
             raise ValueError("Ações e FIIs precisam do código de negociação (ex.: PETR4).")
+        if not TICKER_RE.fullmatch(self.ticker):
+            raise ValueError(MSG_TICKER_INVALIDO)
         if self.quantity is None or self.avg_price is None:
             raise ValueError("Informe a quantidade e o preço médio.")
         invested = round(self.quantity * self.avg_price, 2)
