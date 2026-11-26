@@ -68,6 +68,8 @@ export default function Dashboard() {
   const [d, setD] = useState<D | null>(null);
   const [erro, setErro] = useState("");
   const [atualizando, setAtualizando] = useState(false);
+  const [atualizadoEm, setAtualizadoEm] = useState<number | null>(null);
+  const [agora, setAgora] = useState(() => Date.now());
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [vista, setVista] = useState<"grafico" | "tabela">("grafico");
   const [ocultos, setOcultos] = useState<string[]>([]);
@@ -78,6 +80,9 @@ export default function Dashboard() {
     setAtualizando(true);
     try {
       setD(await api.dashboard());
+      const instante = Date.now();
+      setAtualizadoEm(instante);
+      setAgora(instante);
       setErro("");
       if (manual) toast("Painel atualizado com os dados mais recentes.");
     } catch (e) {
@@ -88,6 +93,10 @@ export default function Dashboard() {
   }, [toast]);
 
   useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => {
+    const id = window.setInterval(() => setAgora(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const ativos = useMemo(() => (d ? d.ativos.filter((a) => filtro === "todos" || a.type === filtro) : []), [d, filtro]);
 
@@ -111,6 +120,7 @@ export default function Dashboard() {
   ];
   const alertas = d.alertas.filter((a) => !ocultos.includes(a.title));
   const vencendo = d.alertas.filter((a) => a.kind === "vencimento").length;
+  const minutos = atualizadoEm ? Math.max(0, Math.floor((agora - atualizadoEm) / 60_000)) : 0;
 
   return (
     <div className="grid">
@@ -126,14 +136,29 @@ export default function Dashboard() {
             </span>
             <span>sobre {brl(d.investido)} aplicados</span>
           </div>
+          {d.superou_cdi !== null && (
+            <p style={{ margin: "12px 0 0", fontSize: "1.05rem" }}>
+              Rendeu mais que o CDI? <strong>{d.superou_cdi ? "Sim" : "Não"}</strong> — {pct(d.rentabilidade_pct)} contra {pct(d.cdi_periodo_pct)}
+            </p>
+          )}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+            <span className="small">Atualizado há {minutos} min</span>
+            <button
+              type="button"
+              className="btn btn-glass"
+              style={{ width: 44, height: 44, padding: 0 }}
+              onClick={() => carregar(true)}
+              disabled={atualizando}
+              aria-label={atualizando ? "Atualizando painel" : "Atualizar painel"}
+              title="Atualizar"
+            >
+              <Icon name="atualizar" size={18} className={atualizando ? "spin" : ""} />
+            </button>
+          </div>
         </div>
         <div className="hero-actions">
           <Link className="btn btn-white" to="/carteira"><Icon name="mais" /> Nova aplicação</Link>
           <Link className="btn btn-glass" to="/carteira?aba=importar"><Icon name="upload" /> Importar B3</Link>
-          <button className="btn btn-glass" onClick={() => carregar(true)} disabled={atualizando}>
-            <Icon name="atualizar" className={atualizando ? "spin" : ""} /> {atualizando ? "Atualizando…" : "Atualizar"}
-          </button>
-          <Link className="btn btn-glass" to="/glossario"><Icon name="livro" /> Glossário</Link>
         </div>
       </section>
 
@@ -284,8 +309,7 @@ export default function Dashboard() {
           </table>
         </div>
         <div className="form-actions" style={{ marginTop: 14 }}>
-          <Link className="btn btn-soft btn-sm" to="/carteira"><Icon name="mais" size={16} /> Adicionar aplicação</Link>
-          <Link className="btn btn-ghost btn-sm" to="/carteira"><Icon name="carteira" size={16} /> Gerenciar carteira</Link>
+          <Link className="btn btn-soft btn-sm" to="/carteira"><Icon name="carteira" size={16} /> Gerenciar carteira</Link>
         </div>
       </section>
 
