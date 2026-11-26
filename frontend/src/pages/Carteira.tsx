@@ -4,7 +4,7 @@ import { api, type Asset, type AssetType } from "../api";
 import Help from "../components/Help";
 import Icon, { type IconName } from "../components/Icon";
 import { useToast } from "../components/Toast";
-import { brl, hojeLocal, parseBR, usaMilharSemVirgula } from "../format";
+import { brl, hojeLocal, parseBR, plural, usaMilharSemVirgula } from "../format";
 
 const vazio = () => ({ name: "", ticker: "", invested: "", start_date: hojeLocal(), indexer: "cdi", rate: "", maturity: "", quantity: "", avg_price: "" });
 
@@ -171,7 +171,7 @@ function Importacao({ onImportado }: { onImportado: () => void }) {
     try {
       const r = await api.importCsv(file);
       setResultado(r);
-      toast(`${r.imported} aplicação(ões) importada(s).`, r.rejected.length ? "info" : "ok");
+      toast(`${plural(r.imported, "aplicação importada", "aplicações importadas")}.`, r.rejected.length ? "info" : "ok");
       onImportado();
     } catch (e) {
       setErro((e as Error).message);
@@ -204,7 +204,7 @@ function Importacao({ onImportado }: { onImportado: () => void }) {
         <div className={`alert ${resultado.rejected.length ? "atencao" : "info"}`} role="status">
           <span className="bubble"><Icon name={resultado.rejected.length ? "alerta" : "ok"} /></span>
           <div>
-            <strong>{resultado.imported} aplicação(ões) importada(s)</strong>
+            <strong>{plural(resultado.imported, "aplicação importada", "aplicações importadas")}</strong>
             {resultado.rejected.length > 0 && (
               <ul className="small" style={{ margin: "6px 0 0", paddingLeft: 18 }}>
                 {resultado.rejected.map((x, i) => <li key={i}>Linha {x.line ?? "?"}: {x.reason}</li>)}

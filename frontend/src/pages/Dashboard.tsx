@@ -6,7 +6,7 @@ import AlertCard from "../components/AlertCard";
 import Help from "../components/Help";
 import Icon, { type IconName } from "../components/Icon";
 import { useToast } from "../components/Toast";
-import { brl, compareText, pct } from "../format";
+import { brl, compareText, pct, plural } from "../format";
 
 const CORES = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)"];
 const ICONE_TIPO: Record<AssetType, IconName> = { renda_fixa: "predio", acao: "grafico", fii: "carteira" };
@@ -138,10 +138,10 @@ export default function Dashboard() {
 
       {/* indicadores */}
       <Stat icone="moeda" cor="b1" rotulo="Rendeu mais que o CDI?" termo="CDI" valor={d.superou_cdi ? "Sim" : "Não"}
-            badge={{ texto: `${pct(d.rentabilidade_pct)} × ${pct(d.cdi_periodo_pct)}`, tom: d.superou_cdi ? "good" : "bad" }}
+            badge={{ texto: `Sua carteira: ${pct(d.rentabilidade_pct)} · CDI: ${pct(d.cdi_periodo_pct)}`, tom: d.superou_cdi ? "good" : "bad" }}
             texto={compareText(d.rentabilidade_pct, d.cdi_periodo_pct, "CDI")} />
       <Stat icone="escudo" cor="b3" rotulo="Ganhou da inflação?" termo="Inflação" valor={d.superou_ipca ? "Sim" : "Não"}
-            badge={{ texto: `${pct(d.rentabilidade_pct)} × ${pct(d.ipca_periodo_pct)}`, tom: d.superou_ipca ? "good" : "bad" }}
+            badge={{ texto: `Sua carteira: ${pct(d.rentabilidade_pct)} · IPCA: ${pct(d.ipca_periodo_pct)}`, tom: d.superou_ipca ? "good" : "bad" }}
             texto={compareText(d.rentabilidade_pct, d.ipca_periodo_pct, "IPCA")} />
       <Stat icone="pizza" cor="b4" rotulo="Diversificação" termo="Diversificação" valor={d.diversificacao.band}
             badge={{ texto: `${d.diversificacao.score}/100`, tom: "neutral" }} texto={d.diversificacao.text}>
@@ -152,7 +152,7 @@ export default function Dashboard() {
       </Stat>
       <Stat icone="carteira" cor="b2" rotulo="Aplicações" termo="Alocação" valor={String(d.ativos.length)}
             badge={vencendo ? { texto: `${vencendo} vencendo`, tom: "bad" } : undefined}
-            texto={`Divididas em ${d.alocacao.length} tipo(s) de investimento.`} />
+            texto={`Divididas em ${plural(d.alocacao.length, "tipo de investimento", "tipos de investimento")}.`} />
 
       {/* avisos */}
       {d.alertas.length > 0 && (
@@ -238,7 +238,7 @@ export default function Dashboard() {
         </div>
         <div className="table-wrap">
           <table>
-            <caption>{ativos.length} aplicação(ões) {filtro === "todos" ? "" : `do tipo selecionado`}</caption>
+            <caption>{plural(ativos.length, "aplicação", "aplicações")} {filtro === "todos" ? "" : `do tipo selecionado`}</caption>
             <thead>
               <tr><th scope="col">Aplicação</th><th scope="col">Tipo</th><th scope="col">Aplicado</th><th scope="col">Hoje</th>
                 <th scope="col">Rendimento</th><th scope="col">Peso na carteira</th></tr>

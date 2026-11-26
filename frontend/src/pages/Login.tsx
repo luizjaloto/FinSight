@@ -1,21 +1,26 @@
 import { type FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, setSession } from "../api";
 import AuthShell from "../components/AuthShell";
 import Icon from "../components/Icon";
 
 export default function Login() {
   const nav = useNavigate();
+  const [params] = useSearchParams();
+  const expirou = params.get("expirou") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [ver, setVer] = useState(false);
   const [erro, setErro] = useState("");
   const [loading, setLoading] = useState(false);
+  const [demorando, setDemorando] = useState(false);
 
   const enviar = async (e: FormEvent) => {
     e.preventDefault();
     setErro("");
     setLoading(true);
+    // A dica do primeiro acesso só aparece se o servidor demorar mais de 3 s.
+    const dica = window.setTimeout(() => setDemorando(true), 3000);
     try {
       const r = await api.login({ email, password });
       setSession(r.access_token, r.name);
@@ -23,6 +28,8 @@ export default function Login() {
     } catch (err) {
       setErro((err as Error).message);
     } finally {
+      window.clearTimeout(dica);
+      setDemorando(false);
       setLoading(false);
     }
   };
@@ -47,15 +54,18 @@ export default function Login() {
             </button>
           </span>
         </label>
+        {expirou && !erro && <p className="muted" role="status">Sua sessão expirou. Entre de novo para continuar.</p>}
         {erro && <p className="error" role="alert">{erro}</p>}
         <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-          <Icon name={loading ? "atualizar" : "sair"} className={loading ? "spin" : ""} /> {loading ? "Entrando…" : "Entrar"}
+          <Icon name={loading ? "atualizar" : "entrar"} className={loading ? "spin" : ""} /> {loading ? "Entrando…" : "Entrar"}
         </button>
         <button type="button" className="btn btn-ghost btn-block" onClick={() => setEmail("demo@finsight.app")}>
-          <Icon name="brilho" /> Usar o e-mail da conta de demonstração
+          <Icon name="brilho" /> Preencher com a conta de demonstração
         </button>
         <p className="muted" style={{ textAlign: "center", margin: 0 }}>Ainda não tem conta? <Link to="/cadastro">Criar conta grátis</Link></p>
-        <p className="muted small" style={{ textAlign: "center", margin: 0 }}>O primeiro acesso pode levar alguns segundos enquanto o servidor inicia.</p>
+        {loading && demorando && (
+          <p className="muted small" style={{ textAlign: "center", margin: 0 }}>O primeiro acesso pode levar alguns segundos enquanto o servidor inicia.</p>
+        )}
       </form>
     </AuthShell>
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareText, parseBR, pct } from "./format";
+import { compareText, parseBR, plural, pct } from "./format";
 
 describe("formatação", () => {
   it("lê números no formato brasileiro", () => {
@@ -31,5 +31,15 @@ describe("formatação", () => {
     expect(compareText(16, 14, "CDI")).toContain("a mais que o CDI");
     expect(compareText(10, 14, "CDI")).toContain("a menos que o CDI");
     expect(compareText(14.01, 14, "CDI")).toContain("praticamente o mesmo");
+  });
+
+  it("explica a diferença entre taxas em pontos percentuais", () => {
+    expect(compareText(15.5, 14, "CDI")).toBe("Sua carteira rendeu 1,50 ponto percentual a mais que o CDI no mesmo período.");
+  });
+
+  it("usa o singular só para 1", () => {
+    expect(plural(1, "aplicação", "aplicações")).toBe("1 aplicação");
+    expect(plural(3, "aplicação", "aplicações")).toBe("3 aplicações");
+    expect(plural(0, "aplicação", "aplicações")).toBe("0 aplicações");
   });
 });
