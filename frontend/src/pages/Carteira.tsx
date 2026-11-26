@@ -1,10 +1,10 @@
-import { type DragEvent, type FormEvent, useEffect, useState } from "react";
+import { type DragEvent, type FormEvent, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, type Asset, type AssetType } from "../api";
 import Help from "../components/Help";
 import Icon, { type IconName } from "../components/Icon";
 import { useToast } from "../components/Toast";
-import { brl, hojeLocal, parseBR } from "../format";
+import { brl, hojeLocal, parseBR, usaMilharSemVirgula } from "../format";
 
 const vazio = () => ({ name: "", ticker: "", invested: "", start_date: hojeLocal(), indexer: "cdi", rate: "", maturity: "", quantity: "", avg_price: "" });
 
@@ -20,13 +20,20 @@ function Cadastro({ onSalvo }: { onSalvo: () => void }) {
   const [f, setF] = useState(vazio);
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [confirmacao, setConfirmacao] = useState<{ texto: string; campoId: string } | null>(null);
   const toast = useToast();
   const rf = tipo === "renda_fixa";
-  const campo = (k: keyof ReturnType<typeof vazio>) => ({ value: f[k], onChange: (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value }) });
+  const campo = (k: keyof ReturnType<typeof vazio>) => ({
+    value: f[k],
+    onChange: (e: { target: { value: string } }) => {
+      setF({ ...f, [k]: e.target.value });
+      setConfirmacao(null);
+    },
+  });
 
-  const salvar = async (e: FormEvent) => {
-    e.preventDefault();
+  const gravar = async () => {
     setErro("");
+    setConfirmacao(null);
     setEnviando(true);
     const qty = parseBR(f.quantity), price = parseBR(f.avg_price);
     const body = rf
@@ -46,11 +53,36 @@ function Cadastro({ onSalvo }: { onSalvo: () => void }) {
     }
   };
 
+  const salvar = async (e: FormEvent) => {
+    e.preventDefault();
+    setErro("");
+    if (!confirmacao) {
+      const moeda = (v: number) => brl(v).replace(/\u00a0/g, " ");
+      if (rf && usaMilharSemVirgula(f.invested)) {
+        setConfirmacao({ texto: `Você digitou ${moeda(parseBR(f.invested))}. Está certo?`, campoId: "campo-invested" });
+        return;
+      }
+      if (rf && usaMilharSemVirgula(f.rate)) {
+        setConfirmacao({ texto: `Você digitou ${parseBR(f.rate).toLocaleString("pt-BR")}%. Está certo?`, campoId: "campo-rate" });
+        return;
+      }
+      if (!rf && usaMilharSemVirgula(f.avg_price)) {
+        setConfirmacao({ texto: `Você digitou ${moeda(parseBR(f.avg_price))}. Está certo?`, campoId: "campo-avg-price" });
+        return;
+      }
+      if (!rf && usaMilharSemVirgula(f.quantity)) {
+        setConfirmacao({ texto: `Você digitou ${parseBR(f.quantity).toLocaleString("pt-BR")} na quantidade. Está certo?`, campoId: "campo-quantity" });
+        return;
+      }
+    }
+    await gravar();
+  };
+
   return (
     <form onSubmit={salvar} noValidate={false}>
       <div className="tipo-cards" role="group" aria-label="Tipo de aplicação">
         {TIPOS.map((t) => (
-          <button type="button" key={t.id} className="tipo-card" aria-pressed={tipo === t.id} onClick={() => { setTipo(t.id); setErro(""); }}>
+          <button type="button" key={t.id} className="tipo-card" aria-pressed={tipo === t.id} onClick={() => { setTipo(t.id); setErro(""); setConfirmacao(null); }}>
             <span className="bubble b1"><Icon name={t.icone} /></span>
             <strong>{t.titulo}</strong>
             <small>{t.desc}</small>
@@ -61,39 +93,92 @@ function Cadastro({ onSalvo }: { onSalvo: () => void }) {
       <div className="form-grid">
         {rf ? (
           <>
-            <label className="full">Nome da aplicação<input placeholder="Ex.: RDC CrediAlta" required {...campo("name")} /></label>
-            <label>Valor aplicado (R$)<input inputMode="decimal" placeholder="Ex.: 5.000,00" required {...campo("invested")} /></label>
-            <label>
-              Rende pelo
-              <select {...campo("indexer")}>
+            <div className="full" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label htmlFor="campo-name">Nome da aplicação</label>
+              <input id="campo-name" placeholder="Ex.: RDC CrediAlta" required {...campo("name")} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label htmlFor="campo-invested">Valor aplicado (R$)</label>
+              <input id="campo-invested" inputMode="decimal" placeholder="Ex.: 5.000,00" required {...campo("invested")} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label htmlFor="campo-indexer">Rende pelo</label>
+              <select id="campo-indexer" {...campo("indexer")}>
                 <option value="cdi">% do CDI</option>
                 <option value="ipca">IPCA + taxa</option>
               </select>
-            </label>
-            <label>
-              <span>{f.indexer === "cdi" ? "Quanto do CDI (%)" : "Taxa acima da inflação (% ao ano)"} <Help termo={f.indexer === "cdi" ? "% do CDI" : "IPCA+"} /></span>
-              <input inputMode="decimal" placeholder={f.indexer === "cdi" ? "Ex.: 105 (para 105% do CDI)" : "Ex.: 6,2"} required {...campo("rate")} />
-              <span className="dica">{f.indexer === "cdi" ? "Pode digitar 105 ou 1,05: os dois significam 105% do CDI." : "Entre -10% e 50% ao ano."}</span>
-            </label>
-            <label>Vencimento (opcional)<input type="date" min={f.start_date} {...campo("maturity")} /></label>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <label htmlFor="campo-rate">{f.indexer === "cdi" ? "Quanto do CDI (%)" : "Taxa acima da inflação (% ao ano)"}</label>
+                <Help termo={f.indexer === "cdi" ? "% do CDI" : "IPCA+"} />
+              </div>
+              <input id="campo-rate" inputMode="decimal" aria-describedby="dica-rate" placeholder={f.indexer === "cdi" ? "Ex.: 105 (para 105% do CDI)" : "Ex.: 6,2"} required {...campo("rate")} />
+              <span id="dica-rate" className="dica">{f.indexer === "cdi" ? "Pode digitar 105 ou 1,05: os dois significam 105% do CDI." : "Entre -10% e 50% ao ano."}</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label htmlFor="campo-maturity">Vencimento (opcional)</label>
+              <input id="campo-maturity" type="date" min={f.start_date} {...campo("maturity")} />
+            </div>
           </>
         ) : (
           <>
-            <label>Código de negociação<input placeholder={tipo === "fii" ? "Ex.: HGLG11" : "Ex.: PETR4"} required {...campo("ticker")} /></label>
-            <label>Nome (opcional)<input placeholder={tipo === "fii" ? "Ex.: CSHG Logística" : "Ex.: Petrobras PN"} {...campo("name")} /></label>
-            <label>Quantidade<input inputMode="decimal" required {...campo("quantity")} /></label>
-            <label>Preço médio pago (R$)<input inputMode="decimal" required {...campo("avg_price")} /></label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label htmlFor="campo-ticker">Código de negociação</label>
+              <input id="campo-ticker" placeholder={tipo === "fii" ? "Ex.: HGLG11" : "Ex.: PETR4"} required {...campo("ticker")} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label htmlFor="campo-name-rv">Nome (opcional)</label>
+              <input id="campo-name-rv" placeholder={tipo === "fii" ? "Ex.: CSHG Logística" : "Ex.: Petrobras PN"} {...campo("name")} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label htmlFor="campo-quantity">Quantidade</label>
+              <input id="campo-quantity" inputMode="decimal" required {...campo("quantity")} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label htmlFor="campo-avg-price">Preço médio pago (R$)</label>
+              <input id="campo-avg-price" inputMode="decimal" required {...campo("avg_price")} />
+            </div>
           </>
         )}
-        <label>Data da aplicação<input type="date" max={hojeLocal()} required {...campo("start_date")} /></label>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label htmlFor="campo-start-date">Data da aplicação</label>
+          <input id="campo-start-date" type="date" max={hojeLocal()} required {...campo("start_date")} />
+        </div>
       </div>
 
+      {confirmacao && (
+        <div className="alert atencao" role="alert" style={{ marginTop: 14 }}>
+          <span className="bubble"><Icon name="alerta" /></span>
+          <div>
+            <strong>Confira o valor digitado</strong>
+            <p>{confirmacao.texto}</p>
+            <div className="form-actions">
+              <button type="button" className="btn btn-primary btn-sm" disabled={enviando} onClick={() => void gravar()}>
+                Sim, salvar
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => {
+                  const id = confirmacao.campoId;
+                  setConfirmacao(null);
+                  window.requestAnimationFrame(() => document.getElementById(id)?.focus());
+                }}
+              >
+                Corrigir
+              </button>
+            </div>
+          </div>
+          <span />
+        </div>
+      )}
       {erro && <p className="error" role="alert" style={{ marginTop: 14 }}>{erro}</p>}
       <div className="form-actions" style={{ marginTop: 18 }}>
         <button type="submit" className="btn btn-primary" disabled={enviando}>
           <Icon name={enviando ? "atualizar" : "ok"} className={enviando ? "spin" : ""} /> {enviando ? "Salvando…" : "Salvar aplicação"}
         </button>
-        <button type="button" className="btn btn-ghost" onClick={() => { setF(vazio()); setErro(""); }}>Limpar campos</button>
+        <button type="button" className="btn btn-ghost" onClick={() => { setF(vazio()); setErro(""); setConfirmacao(null); }}>Limpar campos</button>
       </div>
     </form>
   );
@@ -166,10 +251,14 @@ export default function Carteira() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [confirmando, setConfirmando] = useState<string | null>(null);
   const [erro, setErro] = useState("");
+  const removerBtnRef = useRef<HTMLButtonElement>(null);
   const toast = useToast();
 
   const carregar = () => api.portfolio().then((r) => { setAssets(r.assets); setErro(""); }).catch((e) => setErro(e.message));
   useEffect(() => { carregar(); }, []);
+  useEffect(() => {
+    if (confirmando) removerBtnRef.current?.focus();
+  }, [confirmando]);
 
   const remover = async (a: Asset) => {
     try {
@@ -188,7 +277,7 @@ export default function Carteira() {
     <>
       <div className="page-head">
         <div>
-          <h1>Sua carteira</h1>
+          <h1 tabIndex={-1}>Sua carteira</h1>
           <p>Cadastre suas aplicações uma a uma ou importe tudo de uma vez pelo arquivo da B3.</p>
         </div>
         <Link className="btn btn-soft" to="/"><Icon name="painel" /> Ver painel</Link>
@@ -198,9 +287,9 @@ export default function Carteira() {
         <section className="card span-7" aria-labelledby="t-form">
           <div className="card-head">
             <h2 id="t-form">{aba === "cadastrar" ? <><Icon name="mais" /> Nova aplicação</> : <><Icon name="upload" /> Importar da B3</>}</h2>
-            <div className="segmented" role="tablist" aria-label="Forma de cadastro">
-              <button role="tab" aria-selected={aba === "cadastrar"} onClick={() => setParams({})}><Icon name="mais" size={16} /> Cadastrar</button>
-              <button role="tab" aria-selected={aba === "importar"} onClick={() => setParams({ aba: "importar" })}><Icon name="upload" size={16} /> Importar</button>
+            <div className="segmented" role="group" aria-label="Forma de cadastro">
+              <button type="button" aria-current={aba === "cadastrar" ? "true" : undefined} onClick={() => setParams({})}><Icon name="mais" size={16} /> Cadastrar</button>
+              <button type="button" aria-current={aba === "importar" ? "true" : undefined} onClick={() => setParams({ aba: "importar" })}><Icon name="upload" size={16} /> Importar</button>
             </div>
           </div>
           {aba === "cadastrar" ? <Cadastro onSalvo={carregar} /> : <Importacao onImportado={carregar} />}
@@ -232,11 +321,21 @@ export default function Carteira() {
                 </div>
                 {confirmando === a.id ? (
                   <span className="form-actions" style={{ marginTop: 0 }}>
-                    <button className="btn btn-danger btn-sm" onClick={() => remover(a)}>Remover</button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setConfirmando(null)}>Cancelar</button>
+                    <button ref={removerBtnRef} type="button" className="btn btn-danger btn-sm" onClick={() => remover(a)}>Remover</button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => {
+                        const id = `lixeira-${a.id}`;
+                        setConfirmando(null);
+                        window.requestAnimationFrame(() => document.getElementById(id)?.focus());
+                      }}
+                    >
+                      Cancelar
+                    </button>
                   </span>
                 ) : (
-                  <button className="icon-btn" onClick={() => setConfirmando(a.id)} aria-label={`Remover ${a.ticker ?? a.name}`} title="Remover">
+                  <button id={`lixeira-${a.id}`} type="button" className="icon-btn" onClick={() => setConfirmando(a.id)} aria-label={`Remover ${a.ticker ?? a.name}`} title="Remover">
                     <Icon name="lixeira" size={18} />
                   </button>
                 )}

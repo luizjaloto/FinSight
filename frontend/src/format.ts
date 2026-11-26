@@ -4,11 +4,21 @@ export const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency",
 export const pct = (v: number, digits = 2) =>
   `${v.toLocaleString("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits })}%`;
 
-/** Converte "1.234,56" ou "1234.56" em número. Retorna NaN se não for número. */
+const MILHAR_SEM_VIRGULA = /^[1-9]\d{0,2}(\.\d{3})+$/;
+
+/** Indica se o texto usa ponto de milhar sem vírgula decimal (ex.: "1.500", "10.000"). */
+export function usaMilharSemVirgula(raw: string): boolean {
+  const s = raw.trim().replace(/\s|R\$/g, "");
+  return !s.includes(",") && MILHAR_SEM_VIRGULA.test(s);
+}
+
+/** Converte "1.234,56", "5.000" ou "0.5" em número. Retorna NaN se não for número. */
 export function parseBR(raw: string): number {
   const s = raw.trim().replace(/\s|R\$/g, "");
   if (!s) return NaN;
-  return Number(s.includes(",") ? s.replace(/\./g, "").replace(",", ".") : s);
+  if (s.includes(",")) return Number(s.replace(/\./g, "").replace(",", "."));
+  if (MILHAR_SEM_VIRGULA.test(s)) return Number(s.replace(/\./g, ""));
+  return Number(s);
 }
 
 /** Frase simples comparando a carteira com uma referência. */

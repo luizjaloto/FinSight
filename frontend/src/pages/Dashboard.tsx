@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { api, type AssetType, type Dashboard as D } from "../api";
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { api, type Alerta, type AssetType, type Dashboard as D } from "../api";
 import AlertCard from "../components/AlertCard";
 import Help from "../components/Help";
 import Icon, { type IconName } from "../components/Icon";
@@ -9,6 +9,7 @@ import { useToast } from "../components/Toast";
 import { brl, compareText, pct } from "../format";
 
 const CORES = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)"];
+const CORES_COMPARACAO = ["var(--primaria)", "var(--suave)", "var(--borda-campo)"];
 const ICONE_TIPO: Record<AssetType, IconName> = { renda_fixa: "predio", acao: "grafico", fii: "carteira" };
 type Filtro = "todos" | AssetType;
 const FILTROS: { id: Filtro; rotulo: string }[] = [
@@ -17,6 +18,18 @@ const FILTROS: { id: Filtro; rotulo: string }[] = [
   { id: "acao", rotulo: "Ações" },
   { id: "fii", rotulo: "FIIs" },
 ];
+
+function alvoDoAlerta(a: Alerta): string {
+  const extra = a as Alerta & { ticker?: string | null; name?: string | null };
+  if (extra.ticker) return extra.ticker;
+  if (extra.name) return extra.name;
+  if (a.kind === "concentracao") return a.title.match(/\(([^()]+)\)\s*$/)?.[1] ?? a.title;
+  if (a.kind === "vencido") return a.title.match(/^(.+)\s+venceu em\s+/)?.[1] ?? a.title;
+  if (a.kind === "vencimento") return a.title.match(/^(.+)\s+vence em\s+/)?.[1] ?? a.title;
+  if (a.kind === "cotacao") return a.title.match(/^Cotação de\s+(.+)\s+indisponível/)?.[1] ?? a.title;
+  if (a.kind === "erro_calculo") return a.title.replace(/^Não foi possível calcular:\s*/, "");
+  return a.kind;
+}
 
 function Carregando() {
   return (
@@ -33,7 +46,7 @@ function Vazio() {
   return (
     <div className="card empty">
       <span className="bubble b1"><Icon name="carteira" size={34} /></span>
-      <h1>Sua carteira ainda está vazia</h1>
+      <h1 tabIndex={-1}>Sua carteira ainda está vazia</h1>
       <p className="muted">Cadastre suas aplicações ou importe o arquivo da B3 para ver quanto rendeu, comparado ao CDI e à inflação.</p>
       <div className="form-actions">
         <Link className="btn btn-primary" to="/carteira"><Icon name="mais" /> Cadastrar aplicação</Link>
@@ -67,9 +80,12 @@ export default function Dashboard() {
   const [d, setD] = useState<D | null>(null);
   const [erro, setErro] = useState("");
   const [atualizando, setAtualizando] = useState(false);
+  const [atualizadoEm, setAtualizadoEm] = useState<number | null>(null);
+  const [agora, setAgora] = useState(() => Date.now());
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [vista, setVista] = useState<"grafico" | "tabela">("grafico");
   const [ocultos, setOcultos] = useState<string[]>([]);
+  const [celular, setCelular] = useState(() => window.matchMedia?.("(max-width: 560px)").matches ?? false);
   const toast = useToast();
   const nome = (localStorage.getItem("finsight_name") ?? "").split(" ")[0];
 
@@ -77,6 +93,9 @@ export default function Dashboard() {
     setAtualizando(true);
     try {
       setD(await api.dashboard());
+      const instante = Date.now();
+      setAtualizadoEm(instante);
+      setAgora(instante);
       setErro("");
       if (manual) toast("Painel atualizado com os dados mais recentes.");
     } catch (e) {
@@ -87,6 +106,17 @@ export default function Dashboard() {
   }, [toast]);
 
   useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => {
+    const id = window.setInterval(() => setAgora(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  useEffect(() => {
+    const mql = window.matchMedia?.("(max-width: 560px)");
+    if (!mql) return;
+    const aoMudar = (e: MediaQueryListEvent) => setCelular(e.matches);
+    mql.addEventListener("change", aoMudar);
+    return () => mql.removeEventListener("change", aoMudar);
+  }, []);
 
   const ativos = useMemo(() => (d ? d.ativos.filter((a) => filtro === "todos" || a.type === filtro) : []), [d, filtro]);
 
@@ -94,7 +124,7 @@ export default function Dashboard() {
     return (
       <div className="card empty" role="alert">
         <span className="bubble b2"><Icon name="alerta" size={34} /></span>
-        <h1>Não foi possível carregar o painel</h1>
+        <h1 tabIndex={-1}>Não foi possível carregar o painel</h1>
         <p className="muted">{erro}</p>
         <button className="btn btn-primary" onClick={() => carregar(true)}><Icon name="atualizar" /> Tentar de novo</button>
       </div>
@@ -108,8 +138,16 @@ export default function Dashboard() {
     { nome: "CDI", valor: d.cdi_periodo_pct },
     { nome: "Inflação (IPCA)", valor: d.ipca_periodo_pct },
   ];
-  const alertas = d.alertas.filter((a) => !ocultos.includes(a.title));
+  const contagemChave = new Map<string, number>();
+  const alertasComChave = d.alertas.map((a) => {
+    const base = `${a.kind}:${alvoDoAlerta(a)}`;
+    const n = contagemChave.get(base) ?? 0;
+    contagemChave.set(base, n + 1);
+    return { a, chave: n === 0 ? base : `${base}#${n}` };
+  });
+  const alertas = alertasComChave.filter((x) => !ocultos.includes(x.chave));
   const vencendo = d.alertas.filter((a) => a.kind === "vencimento").length;
+  const minutos = atualizadoEm ? Math.max(0, Math.floor((agora - atualizadoEm) / 60_000)) : 0;
 
   return (
     <div className="grid">
@@ -117,7 +155,7 @@ export default function Dashboard() {
       <section className="hero" aria-label="Resumo do patrimônio">
         <div>
           <p className="eyebrow"><Icon name="brilho" size={18} /> Olá{nome ? `, ${nome}` : ""}! Este é o resumo da sua carteira.</p>
-          <h1>Patrimônio hoje</h1>
+          <h1 tabIndex={-1}>Patrimônio hoje</h1>
           <div className="hero-value">{brl(d.patrimonio)}</div>
           <div className="hero-sub">
             <span className="chip-hero">
@@ -125,14 +163,29 @@ export default function Dashboard() {
             </span>
             <span>sobre {brl(d.investido)} aplicados</span>
           </div>
+          {d.superou_cdi !== null && (
+            <p style={{ margin: "12px 0 0", fontSize: "1.05rem" }}>
+              Rendeu mais que o CDI? <strong>{d.superou_cdi ? "Sim" : "Não"}</strong> — {pct(d.rentabilidade_pct)} contra {pct(d.cdi_periodo_pct)}
+            </p>
+          )}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+            <span className="small">Atualizado há {minutos} min</span>
+            <button
+              type="button"
+              className="btn btn-glass"
+              style={{ width: 44, height: 44, padding: 0 }}
+              onClick={() => carregar(true)}
+              disabled={atualizando}
+              aria-label={atualizando ? "Atualizando painel" : "Atualizar painel"}
+              title="Atualizar"
+            >
+              <Icon name="atualizar" size={18} className={atualizando ? "spin" : ""} />
+            </button>
+          </div>
         </div>
         <div className="hero-actions">
           <Link className="btn btn-white" to="/carteira"><Icon name="mais" /> Nova aplicação</Link>
           <Link className="btn btn-glass" to="/carteira?aba=importar"><Icon name="upload" /> Importar B3</Link>
-          <button className="btn btn-glass" onClick={() => carregar(true)} disabled={atualizando}>
-            <Icon name="atualizar" className={atualizando ? "spin" : ""} /> {atualizando ? "Atualizando…" : "Atualizar"}
-          </button>
-          <Link className="btn btn-glass" to="/glossario"><Icon name="livro" /> Glossário</Link>
         </div>
       </section>
 
@@ -164,7 +217,7 @@ export default function Dashboard() {
             )}
           </div>
           {alertas.length === 0 && <p className="muted">Você já leu todos os avisos.</p>}
-          {alertas.map((a) => <AlertCard key={a.title} a={a} onOcultar={() => setOcultos((o) => [...o, a.title])} />)}
+          {alertas.map(({ a, chave }) => <AlertCard key={chave} a={a} onOcultar={() => setOcultos((o) => [...o, chave])} />)}
         </section>
       )}
 
@@ -180,20 +233,26 @@ export default function Dashboard() {
         {vista === "grafico" ? (
           <div role="img" aria-label={comparacao.map((c) => `${c.nome}: ${pct(c.valor)}`).join("; ")}>
             <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={comparacao} margin={{ left: 0, right: 8, top: 8 }}>
+              <BarChart data={comparacao} margin={{ left: 0, right: 8, top: 28 }}>
                 <CartesianGrid vertical={false} stroke="var(--borda)" />
                 <XAxis dataKey="nome" tick={{ fontSize: 14, fill: "var(--suave)" }} axisLine={false} tickLine={false} />
                 <YAxis tickFormatter={(v) => `${v}%`} tick={{ fontSize: 13, fill: "var(--suave)" }} width={48} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(v: number) => pct(v)} cursor={{ fill: "var(--primaria-suave)" }}
                          contentStyle={{ borderRadius: 12, border: "1px solid var(--borda)", background: "var(--cartao)", color: "var(--texto)" }} />
                 <Bar dataKey="valor" radius={[10, 10, 0, 0]} maxBarSize={90}>
-                  {comparacao.map((_, i) => <Cell key={i} fill={CORES[i]} />)}
+                  {comparacao.map((_, i) => <Cell key={i} fill={CORES_COMPARACAO[i]} />)}
+                  <LabelList
+                    dataKey="valor"
+                    position="top"
+                    formatter={(v: unknown) => (typeof v === "number" ? pct(v) : String(v ?? ""))}
+                    style={{ fill: "var(--texto)", fontSize: 14, fontWeight: 700 }}
+                  />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Tabela de rentabilidade no período">
             <table>
               <caption>Rentabilidade no período de cada aplicação</caption>
               <thead><tr><th scope="col">Referência</th><th scope="col">Rendimento</th></tr></thead>
@@ -236,49 +295,88 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
-        <div className="table-wrap">
-          <table>
-            <caption>{ativos.length} aplicação(ões) {filtro === "todos" ? "" : `do tipo selecionado`}</caption>
-            <thead>
-              <tr><th scope="col">Aplicação</th><th scope="col">Tipo</th><th scope="col">Aplicado</th><th scope="col">Hoje</th>
-                <th scope="col">Rendimento</th><th scope="col">Peso na carteira</th></tr>
-            </thead>
-            <tbody>
-              {ativos.map((a) => (
-                <tr key={a.id}>
-                  <th scope="row">
-                    <span className="ativo-nome">
-                      <span className="bubble b1" style={{ width: 38, height: 38 }}><Icon name={ICONE_TIPO[a.type] ?? "carteira"} size={18} /></span>
-                      <span>
-                        {a.ticker ?? a.name}{a.quote_missing && " *"}
-                        <small>{a.ticker ? a.name : a.status === "vencido" ? "Vencido – não rende mais" : "Renda fixa"}</small>
-                      </span>
+        {celular ? (
+          <ul className="ativos-cartoes" aria-label="Suas aplicações">
+            {ativos.map((a) => (
+              <li key={a.id} className="ativo-cartao">
+                <div className="ativo-cartao-topo">
+                  <span className="ativo-nome">
+                    <span className="bubble b1" style={{ width: 38, height: 38 }}><Icon name={ICONE_TIPO[a.type] ?? "carteira"} size={18} /></span>
+                    <span>
+                      {a.ticker ?? a.name}{a.quote_missing && " *"}
+                      <small>{a.ticker ? a.name : a.status === "vencido" ? "Vencido – não rende mais" : "Renda fixa"}</small>
                     </span>
-                  </th>
-                  <td><span className={`tag tag-${a.type}`}>{a.class_label}</span></td>
-                  {a.calc_error || a.current == null || a.return_pct == null || a.peso_pct == null ? (
-                    <td colSpan={4} className="neg">Erro de cálculo: confira os dados desta aplicação (fora dos totais)</td>
-                  ) : (
-                    <>
-                      <td>{brl(a.invested)}</td>
-                      <td><strong>{brl(a.current)}</strong></td>
-                      <td className={a.return_pct >= 0 ? "pos" : "neg"}>{a.return_pct >= 0 ? "▲" : "▼"} {pct(a.return_pct)}</td>
-                      <td>
-                        <span className="peso">
-                          <span className="meter"><span style={{ width: `${Math.min(a.peso_pct, 100)}%` }} /></span>
-                          {pct(a.peso_pct, 1)}
+                  </span>
+                  <span className={`tag tag-${a.type}`}>{a.class_label}</span>
+                </div>
+                {a.calc_error || a.current == null || a.return_pct == null || a.peso_pct == null ? (
+                  <p className="neg" style={{ margin: 0 }}>Erro de cálculo: confira os dados desta aplicação (fora dos totais)</p>
+                ) : (
+                  <div className="ativo-cartao-dados">
+                    <div>
+                      <span className="rotulo">Valor hoje</span>
+                      <strong>{brl(a.current)}</strong>
+                    </div>
+                    <div>
+                      <span className="rotulo">Rendimento</span>
+                      <span className={a.return_pct >= 0 ? "pos" : "neg"}>{a.return_pct >= 0 ? "▲" : "▼"} {pct(a.return_pct)}</span>
+                    </div>
+                    <div className="ativo-cartao-peso">
+                      <span className="rotulo">Peso na carteira</span>
+                      <span className="peso">
+                        <span className="meter"><span style={{ width: `${Math.min(a.peso_pct, 100)}%` }} /></span>
+                        {pct(a.peso_pct, 1)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Tabela das suas aplicações">
+            <table>
+              <caption>{ativos.length} aplicação(ões) {filtro === "todos" ? "" : `do tipo selecionado`}</caption>
+              <thead>
+                <tr><th scope="col">Aplicação</th><th scope="col">Tipo</th><th scope="col">Aplicado</th><th scope="col">Hoje</th>
+                  <th scope="col">Rendimento</th><th scope="col">Peso na carteira</th></tr>
+              </thead>
+              <tbody>
+                {ativos.map((a) => (
+                  <tr key={a.id}>
+                    <th scope="row">
+                      <span className="ativo-nome">
+                        <span className="bubble b1" style={{ width: 38, height: 38 }}><Icon name={ICONE_TIPO[a.type] ?? "carteira"} size={18} /></span>
+                        <span>
+                          {a.ticker ?? a.name}{a.quote_missing && " *"}
+                          <small>{a.ticker ? a.name : a.status === "vencido" ? "Vencido – não rende mais" : "Renda fixa"}</small>
                         </span>
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                      </span>
+                    </th>
+                    <td><span className={`tag tag-${a.type}`}>{a.class_label}</span></td>
+                    {a.calc_error || a.current == null || a.return_pct == null || a.peso_pct == null ? (
+                      <td colSpan={4} className="neg">Erro de cálculo: confira os dados desta aplicação (fora dos totais)</td>
+                    ) : (
+                      <>
+                        <td>{brl(a.invested)}</td>
+                        <td><strong>{brl(a.current)}</strong></td>
+                        <td className={a.return_pct >= 0 ? "pos" : "neg"}>{a.return_pct >= 0 ? "▲" : "▼"} {pct(a.return_pct)}</td>
+                        <td>
+                          <span className="peso">
+                            <span className="meter"><span style={{ width: `${Math.min(a.peso_pct, 100)}%` }} /></span>
+                            {pct(a.peso_pct, 1)}
+                          </span>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         <div className="form-actions" style={{ marginTop: 14 }}>
-          <Link className="btn btn-soft btn-sm" to="/carteira"><Icon name="mais" size={16} /> Adicionar aplicação</Link>
-          <Link className="btn btn-ghost btn-sm" to="/carteira"><Icon name="carteira" size={16} /> Gerenciar carteira</Link>
+          <Link className="btn btn-soft btn-sm" to="/carteira"><Icon name="carteira" size={16} /> Gerenciar carteira</Link>
         </div>
       </section>
 
