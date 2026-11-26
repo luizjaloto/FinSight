@@ -277,7 +277,7 @@ export default function Carteira() {
     <>
       <div className="page-head">
         <div>
-          <h1>Sua carteira</h1>
+          <h1 tabIndex={-1}>Sua carteira</h1>
           <p>Cadastre suas aplicações uma a uma ou importe tudo de uma vez pelo arquivo da B3.</p>
         </div>
         <Link className="btn btn-soft" to="/"><Icon name="painel" /> Ver painel</Link>

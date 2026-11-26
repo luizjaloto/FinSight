@@ -34,7 +34,7 @@ function Vazio() {
   return (
     <div className="card empty">
       <span className="bubble b1"><Icon name="carteira" size={34} /></span>
-      <h1>Sua carteira ainda está vazia</h1>
+      <h1 tabIndex={-1}>Sua carteira ainda está vazia</h1>
       <p className="muted">Cadastre suas aplicações ou importe o arquivo da B3 para ver quanto rendeu, comparado ao CDI e à inflação.</p>
       <div className="form-actions">
         <Link className="btn btn-primary" to="/carteira"><Icon name="mais" /> Cadastrar aplicação</Link>
@@ -95,7 +95,7 @@ export default function Dashboard() {
     return (
       <div className="card empty" role="alert">
         <span className="bubble b2"><Icon name="alerta" size={34} /></span>
-        <h1>Não foi possível carregar o painel</h1>
+        <h1 tabIndex={-1}>Não foi possível carregar o painel</h1>
         <p className="muted">{erro}</p>
         <button className="btn btn-primary" onClick={() => carregar(true)}><Icon name="atualizar" /> Tentar de novo</button>
       </div>
@@ -118,7 +118,7 @@ export default function Dashboard() {
       <section className="hero" aria-label="Resumo do patrimônio">
         <div>
           <p className="eyebrow"><Icon name="brilho" size={18} /> Olá{nome ? `, ${nome}` : ""}! Este é o resumo da sua carteira.</p>
-          <h1>Patrimônio hoje</h1>
+          <h1 tabIndex={-1}>Patrimônio hoje</h1>
           <div className="hero-value">{brl(d.patrimonio)}</div>
           <div className="hero-sub">
             <span className="chip-hero">
@@ -200,7 +200,7 @@ export default function Dashboard() {
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Tabela de rentabilidade no período">
             <table>
               <caption>Rentabilidade no período de cada aplicação</caption>
               <thead><tr><th scope="col">Referência</th><th scope="col">Rendimento</th></tr></thead>
@@ -243,7 +243,7 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0} role="region" aria-label="Tabela das suas aplicações">
           <table>
             <caption>{ativos.length} aplicação(ões) {filtro === "todos" ? "" : `do tipo selecionado`}</caption>
             <thead>
