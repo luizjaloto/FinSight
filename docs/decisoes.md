@@ -72,3 +72,18 @@ Dados antigos que violem esses limites (gravados antes da validação) não derr
 - Efeito colateral esperado: tokens emitidos pela v0.4.0 (sem `iss`/`aud`) deixam de valer; o usuário só precisa entrar de novo.
 - `docker-compose.yml` não tem mais valor padrão para `JWT_SECRET` (`${JWT_SECRET:?...}`) e roda a API com `ENV=production`.
   A variável fica no arquivo `.env` da raiz (modelo em `.env.example`).
+
+## A4 – Varredura de segredos no histórico (Gitleaks)
+
+Varredura executada com `gitleaks git --log-opts="--all" -v .` (Gitleaks v8.24.0) sobre todos os commits do repositório,
+combinando o conjunto padrão de regras com verificação específica para `DEMO_PASSWORD` e `JWT_SECRET`:
+
+| Item encontrado | Arquivo e linha | Commit(s) | Classificação | Recomendação |
+|---|---|---|---|---|
+| `DEMO_PASSWORD=Demo@2026` / `${DEMO_PASSWORD:-Demo@2026}` | `docker-compose.yml:25`, `backend/.env.example:18`, `.env.example:11` | `fb93227` (`v0.4.0`), `5d2c979`, `c0d5db2` (removido dos arquivos de configuração em `622592c`) | Credencial padrão de demonstração no histórico público | Não reescrever o histórico (repositório público e tag `v0.4.0` congelada). Em qualquer ambiente compartilhado ou de produção, definir um `DEMO_PASSWORD` forte e exclusivo no `.env` e recriar/alterar a senha de `demo@finsight.app` (ou não criar a conta de demonstração). |
+| `return "Demo@2026"` (fallback local quando `ENV != "production"`) | `backend/scripts/seed_demo.py:29` | `622592c`, `ccf7f9b` | Fallback restrito a desenvolvimento local (`ENV=production` exige `DEMO_PASSWORD` no ambiente) | Manter bloqueio obrigatório em produção; nunca reutilizar `Demo@2026` fora de ambiente local descartável. |
+| `troque-por-um-texto-longo-e-aleatorio-com-32-caracteres` e `troque-esta-chave-em-producao` | `docker-compose.yml:22`, `backend/.env.example:8`, `backend/app/config.py:12` | `fb93227` (`v0.4.0`) | Segredo JWT de exemplo | Já bloqueados em produção por `EXAMPLE_JWT_SECRETS` desde `5d2c979` (`S3`). Qualquer ambiente que tenha subido antes de `5d2c979` deve rotacionar `JWT_SECRET` com `secrets.token_urlsafe(48)`. |
+| `"JWT_SECRET": "segredo-de-teste-com-mais-de-32-caracteres"` | `backend/tests/test_producao.py:14` | `622592c`, `ccf7f9b` | Falso positivo (`generic-api-key`) | Fixture sintética usada apenas em subprocesso de teste automatizado (`pytest` com `mongomock://`). Nenhuma ação necessária. |
+| `JWT_SECRET=` seguido de `JWT_MINUTES=60` | `backend/.env.example:12` | `c0d5db2` | Falso positivo (`generic-api-key`) | Variável vazia no `.env.example` em que a regex capturou a linha seguinte (`JWT_MINUTES=60`). Nenhuma ação necessária. |
+
+Nenhum token real de API externa (`BRAPI_TOKEN`), URI com credencial do MongoDB Atlas ou chave privada foi encontrado no histórico.
