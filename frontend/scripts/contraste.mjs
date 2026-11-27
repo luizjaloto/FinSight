@@ -49,8 +49,11 @@ export function extrairTokens(css) {
 
 export function verificarContrastes(css = readFileSync(CSS_PATH, "utf8")) {
   const { claro, escuro } = extrairTokens(css);
-  const fimGrad = [...(claro.grad?.matchAll(/#[0-9a-f]{6}/gi) ?? [])].pop()?.[0] ?? claro.rosa;
+  const fimDe = (grad, reserva) => [...(grad?.matchAll(/#[0-9a-f]{6}/gi) ?? [])].pop()?.[0] ?? reserva;
+  const fimGrad = fimDe(claro["grad-hero"], claro.rosa);
+  const fimGradEscuro = fimDe(escuro["grad-hero"], escuro.rosa);
   const fundoGlass = misturarSobre([255, 255, 255], hexParaRgb(fimGrad), 0.16);
+  const fundoGlassEscuro = misturarSobre([255, 255, 255], hexParaRgb(fimGradEscuro), 0.16);
 
   const pares = [
     // Tema claro — textos (mínimo 4,5:1) e interface/ícones (mínimo 3:1)
@@ -60,9 +63,11 @@ export function verificarContrastes(css = readFileSync(CSS_PATH, "utf8")) {
     { alvo: "Texto suave / cartão (claro)", fg: claro.suave, bg: claro.cartao, min: 4.5 },
     { alvo: "Primária / cartão (claro)", fg: claro.primaria, bg: claro.cartao, min: 4.5 },
     { alvo: "Primária / primária-suave (claro)", fg: claro.primaria, bg: claro["primaria-suave"], min: 4.5 },
-    { alvo: ".tag-acao (claro)", fg: claro.acento, bg: claro["vermelho-suave"], min: 4.5 },
-    { alvo: "Ícone .bubble.b2 (claro)", fg: claro.acento, bg: claro["vermelho-suave"], min: 3.0 },
-    { alvo: "Ícone .bubble.b4 (claro)", fg: claro.acento, bg: claro["ambar-suave"], min: 3.0 },
+    { alvo: ".tag-acao (claro)", fg: claro.acento, bg: claro["acento-suave"], min: 4.5 },
+    { alvo: "Ícone .bubble.b2 (claro)", fg: claro.teal, bg: claro["verde-suave"], min: 3.0 },
+    { alvo: "Ícone .bubble.b4 (claro)", fg: claro.acento, bg: claro["acento-suave"], min: 3.0 },
+    { alvo: "Alerta / vermelho-suave (claro)", fg: claro.alerta, bg: claro["vermelho-suave"], min: 4.5 },
+    { alvo: "Ícone de alerta / cartão (claro)", fg: claro.alerta, bg: claro.cartao, min: 3.0 },
     { alvo: ".tag-fii (claro)", fg: claro.teal, bg: claro["verde-suave"], min: 4.5 },
     { alvo: "Verde / verde-suave (claro)", fg: claro.verde, bg: claro["verde-suave"], min: 4.5 },
     { alvo: "Vermelho / vermelho-suave (claro)", fg: claro.vermelho, bg: claro["vermelho-suave"], min: 4.5 },
@@ -78,8 +83,14 @@ export function verificarContrastes(css = readFileSync(CSS_PATH, "utf8")) {
     { alvo: "Texto suave / cartão (escuro)", fg: escuro.suave, bg: escuro.cartao, min: 4.5 },
     { alvo: "Primária / cartão (escuro)", fg: escuro.primaria, bg: escuro.cartao, min: 4.5 },
     { alvo: "Primária / primária-suave (escuro)", fg: escuro.primaria, bg: escuro["primaria-suave"], min: 4.5 },
-    { alvo: ".tag-acao (escuro)", fg: escuro.acento, bg: escuro["vermelho-suave"], min: 4.5 },
-    { alvo: "Ícone .bubble.b4 (escuro)", fg: escuro.acento, bg: escuro["ambar-suave"], min: 3.0 },
+    { alvo: ".tag-acao (escuro)", fg: escuro.acento, bg: escuro["acento-suave"], min: 4.5 },
+    { alvo: "Ícone .bubble.b4 (escuro)", fg: escuro.acento, bg: escuro["acento-suave"], min: 3.0 },
+    { alvo: "Alerta / vermelho-suave (escuro)", fg: escuro.alerta, bg: escuro["vermelho-suave"], min: 4.5 },
+    { alvo: "Ícone de alerta / cartão (escuro)", fg: escuro.alerta, bg: escuro.cartao, min: 3.0 },
+    { alvo: "Texto do hero sobre ponta rosa (escuro)", fg: "#ffffff", bg: fimGradEscuro, min: 4.5 },
+    { alvo: ".btn-glass sobre ponta rosa (escuro)", fg: "#ffffff", bg: fundoGlassEscuro, min: 4.5 },
+    { alvo: "Dados da escala categórica / cartão (claro)", fg: claro.c2, bg: claro.cartao, min: 3.0 },
+    { alvo: "Dados da escala categórica / cartão (escuro)", fg: escuro.c2, bg: escuro.cartao, min: 3.0 },
     { alvo: ".tag-fii (escuro)", fg: escuro.teal, bg: escuro["verde-suave"], min: 4.5 },
     { alvo: "Verde / verde-suave (escuro)", fg: escuro.verde, bg: escuro["verde-suave"], min: 4.5 },
     { alvo: "Vermelho / vermelho-suave (escuro)", fg: escuro.vermelho, bg: escuro["vermelho-suave"], min: 4.5 },

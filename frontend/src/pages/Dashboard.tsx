@@ -8,7 +8,10 @@ import Icon, { type IconName } from "../components/Icon";
 import { useToast } from "../components/Toast";
 import { brl, compareText, pct, plural } from "../format";
 
-const CORES = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)"];
+// Escala categórica da marca (índigo → roxo → teal → rosa): uma cor fixa por classe de ativo, igual no donut,
+// na legenda e nos pontos do cartão "Aplicações". A cor de alerta (ferrugem) fica reservada para avisos.
+const COR_DA_CLASSE: Record<string, string> = { "Renda fixa": "var(--c1)", "Ações": "var(--c2)", "Fundos imobiliários": "var(--c3)" };
+const corDaClasse = (classe: string) => COR_DA_CLASSE[classe] ?? "var(--c4)";
 const CORES_COMPARACAO = ["var(--primaria)", "var(--suave)", "var(--borda-campo)"];
 const ICONE_TIPO: Record<AssetType, IconName> = { renda_fixa: "predio", acao: "grafico", fii: "carteira" };
 type Filtro = "todos" | AssetType;
@@ -56,23 +59,47 @@ function Vazio() {
   );
 }
 
+/**
+ * Anatomia única dos quatro cartões: título · valor · indicador visual · frase.
+ * O "?" de ajuda fica preso à última palavra do título (white-space: nowrap) e nunca cai sozinho numa segunda linha.
+ */
 function Stat({ icone, cor, rotulo, termo, valor, badge, texto, children }: {
   icone: IconName; cor: string; rotulo: string; termo: string; valor: string;
   badge?: { texto: string; tom: "good" | "bad" | "neutral" }; texto: string; children?: ReactNode;
 }) {
+  const palavras = rotulo.split(" ");
+  const ultima = palavras.pop();
   return (
-    <section className="card stat span-3" aria-label={rotulo}>
+    <section className="card stat" aria-label={rotulo}>
       <div className="stat-top">
-        <span>{rotulo} <Help termo={termo} /></span>
+        <span className="stat-titulo">{palavras.join(" ")} <span className="nowrap">{ultima} <Help termo={termo} /></span></span>
         <span className={`bubble ${cor}`}><Icon name={icone} /></span>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      <div className="stat-linha">
         <span className="stat-value">{valor}</span>
         {badge && <span className={`badge ${badge.tom}`}>{badge.texto}</span>}
       </div>
-      {children}
+      <div className="indicador">{children}</div>
       <span className="muted small">{texto}</span>
     </section>
+  );
+}
+
+/** Duas barras curtas (carteira × referência), só como apoio visual: os números e a frase já dizem o resultado. */
+function MiniComparacao({ carteira, referencia, rotulo }: { carteira: number; referencia: number; rotulo: string }) {
+  const maior = Math.max(carteira, referencia, 0.01);
+  const largura = (v: number) => `${(Math.max(0, v) / maior) * 100}%`;
+  return (
+    <div className="mini-comp" aria-hidden="true">
+      <div className="mini-linha">
+        <span className="mini-rot">Carteira</span>
+        <span className="mini-barra"><span style={{ width: largura(carteira), background: "var(--primaria)" }} /></span>
+      </div>
+      <div className="mini-linha">
+        <span className="mini-rot">{rotulo}</span>
+        <span className="mini-barra"><span style={{ width: largura(referencia), background: "var(--suave)" }} /></span>
+      </div>
+    </div>
   );
 }
 
@@ -123,7 +150,7 @@ export default function Dashboard() {
   if (erro && !d)
     return (
       <div className="card empty" role="alert">
-        <span className="bubble b2"><Icon name="alerta" size={34} /></span>
+        <span className="bubble b-alerta"><Icon name="alerta" size={34} /></span>
         <h1 tabIndex={-1}>Não foi possível carregar o painel</h1>
         <p className="muted">{erro}</p>
         <button className="btn btn-primary" onClick={() => carregar(true)}><Icon name="atualizar" /> Tentar de novo</button>
@@ -138,8 +165,16 @@ export default function Dashboard() {
     { nome: "CDI", valor: d.cdi_periodo_pct },
     { nome: "Inflação (IPCA)", valor: d.ipca_periodo_pct },
   ];
+
+  // "Não conseguimos atualizar o CDI e o IPCA" é estado do sistema, não observação sobre o dinheiro do usuário:
+  // vira um selo no destaque e sai da lista de avisos, que fica só com o que fala da carteira.
+  const avisoIndicadores = d.alertas.find((a) => a.kind === "indicadores");
+  const indicadoresDesatualizados = Boolean(d.indicadores_desatualizados || avisoIndicadores);
+  const dataIndicadores = avisoIndicadores?.text.match(/até (\d{2}\/\d{2})\/\d{4}/)?.[1];
+  const alertasDaCarteira = d.alertas.filter((a) => a.kind !== "indicadores");
+
   const contagemChave = new Map<string, number>();
-  const alertasComChave = d.alertas.map((a) => {
+  const alertasComChave = alertasDaCarteira.map((a) => {
     const base = `${a.kind}:${alvoDoAlerta(a)}`;
     const n = contagemChave.get(base) ?? 0;
     contagemChave.set(base, n + 1);
@@ -151,24 +186,19 @@ export default function Dashboard() {
 
   return (
     <div className="grid">
-      {/* destaque */}
+      {/* destaque: patrimônio, variação e situação dos dados. A resposta "rendeu mais que o CDI?" fica no cartão abaixo. */}
       <section className="hero" aria-label="Resumo do patrimônio">
         <div>
-          <p className="eyebrow"><Icon name="brilho" size={18} /> Olá{nome ? `, ${nome}` : ""}! Este é o resumo da sua carteira.</p>
+          <p className="eyebrow"><Icon name="brilho" size={18} /> Olá{nome ? `, ${nome}` : ""}</p>
           <h1 tabIndex={-1}>Patrimônio hoje</h1>
           <div className="hero-value">{brl(d.patrimonio)}</div>
           <div className="hero-sub">
             <span className="chip-hero">
               <Icon name={ganho >= 0 ? "sobe" : "desce"} size={16} /> {ganho >= 0 ? "+" : "−"}{brl(Math.abs(ganho))} ({pct(d.rentabilidade_pct)})
             </span>
-            <span>sobre {brl(d.investido)} aplicados</span>
+            <span className="sobre">sobre {brl(d.investido)} aplicados</span>
           </div>
-          {d.superou_cdi !== null && (
-            <p style={{ margin: "12px 0 0", fontSize: "1.05rem" }}>
-              Rendeu mais que o CDI? <strong>{d.superou_cdi ? "Sim" : "Não"}</strong> — {pct(d.rentabilidade_pct)} contra {pct(d.cdi_periodo_pct)}
-            </p>
-          )}
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+          <div className="hero-meta">
             <span className="small">Atualizado há {minutos} min</span>
             <button
               type="button"
@@ -181,39 +211,55 @@ export default function Dashboard() {
             >
               <Icon name="atualizar" size={18} className={atualizando ? "spin" : ""} />
             </button>
+            {indicadoresDesatualizados && (
+              <span className="selo-dados">
+                <Icon name="info" size={16} /> {dataIndicadores ? `CDI e IPCA de ${dataIndicadores}` : "CDI e IPCA desatualizados"}
+                <span className="sr-only">. Não conseguimos atualizar o CDI e o IPCA agora; os cálculos usam os últimos dados salvos do Banco Central.</span>
+              </span>
+            )}
           </div>
         </div>
         <div className="hero-actions">
-          <Link className="btn btn-white" to="/carteira"><Icon name="mais" /> Nova aplicação</Link>
-          <Link className="btn btn-glass" to="/carteira?aba=importar"><Icon name="upload" /> Importar B3</Link>
+          <Link className="btn btn-primary" to="/carteira" aria-label="Nova aplicação"><Icon name="mais" /> Nova<span className="rotulo-longo"> aplicação</span></Link>
+          <Link className="btn btn-glass" to="/carteira?aba=importar" aria-label="Importar da B3"><Icon name="upload" /> Importar<span className="rotulo-longo"> B3</span></Link>
         </div>
       </section>
 
-      {/* indicadores */}
-      <Stat icone="moeda" cor="b1" rotulo="Rendeu mais que o CDI?" termo="CDI" valor={d.superou_cdi ? "Sim" : "Não"}
-            badge={{ texto: `Sua carteira: ${pct(d.rentabilidade_pct)} · CDI: ${pct(d.cdi_periodo_pct)}`, tom: d.superou_cdi ? "good" : "bad" }}
-            texto={compareText(d.rentabilidade_pct, d.cdi_periodo_pct, "CDI")} />
-      <Stat icone="escudo" cor="b3" rotulo="Ganhou da inflação?" termo="Inflação" valor={d.superou_ipca ? "Sim" : "Não"}
-            badge={{ texto: `Sua carteira: ${pct(d.rentabilidade_pct)} · IPCA: ${pct(d.ipca_periodo_pct)}`, tom: d.superou_ipca ? "good" : "bad" }}
-            texto={compareText(d.rentabilidade_pct, d.ipca_periodo_pct, "IPCA")} />
-      <Stat icone="pizza" cor="b4" rotulo="Diversificação" termo="Diversificação" valor={d.diversificacao.band}
-            badge={{ texto: `${d.diversificacao.score}/100`, tom: "neutral" }} texto={d.diversificacao.text}>
-        <div className="meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={d.diversificacao.score}
-             aria-label="Índice de diversificação">
-          <span style={{ width: `${d.diversificacao.score}%` }} />
-        </div>
-      </Stat>
-      <Stat icone="carteira" cor="b2" rotulo="Aplicações" termo="Alocação" valor={String(d.ativos.length)}
-            badge={vencendo ? { texto: `${vencendo} vencendo`, tom: "bad" } : undefined}
-            texto={`Divididas em ${plural(d.alocacao.length, "tipo de investimento", "tipos de investimento")}.`} />
+      {/* indicadores: título · valor · indicador visual · frase */}
+      <div className="stats">
+        <Stat icone="moeda" cor="b1" rotulo="Rendeu mais que o CDI?" termo="CDI" valor={d.superou_cdi ? "Sim" : "Não"}
+              badge={{ texto: `${pct(d.rentabilidade_pct)} · CDI ${pct(d.cdi_periodo_pct)}`, tom: d.superou_cdi ? "good" : "bad" }}
+              texto={compareText(d.rentabilidade_pct, d.cdi_periodo_pct, "CDI")}>
+          <MiniComparacao carteira={d.rentabilidade_pct} referencia={d.cdi_periodo_pct} rotulo="CDI" />
+        </Stat>
+        <Stat icone="escudo" cor="b3" rotulo="Ganhou da inflação?" termo="Inflação" valor={d.superou_ipca ? "Sim" : "Não"}
+              badge={{ texto: `${pct(d.rentabilidade_pct)} · IPCA ${pct(d.ipca_periodo_pct)}`, tom: d.superou_ipca ? "good" : "bad" }}
+              texto={compareText(d.rentabilidade_pct, d.ipca_periodo_pct, "IPCA")}>
+          <MiniComparacao carteira={d.rentabilidade_pct} referencia={d.ipca_periodo_pct} rotulo="IPCA" />
+        </Stat>
+        <Stat icone="pizza" cor="b4" rotulo="Diversificação" termo="Diversificação" valor={d.diversificacao.band}
+              badge={{ texto: `${d.diversificacao.score}/100`, tom: "neutral" }} texto={d.diversificacao.text}>
+          <div className="meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={d.diversificacao.score}
+               aria-label="Índice de diversificação">
+            <span style={{ width: `${d.diversificacao.score}%` }} />
+          </div>
+        </Stat>
+        <Stat icone="carteira" cor="b2" rotulo="Aplicações" termo="Alocação" valor={String(d.ativos.length)}
+              badge={vencendo ? { texto: `${vencendo} vencendo`, tom: "neutral" } : undefined}
+              texto={`Divididas em ${plural(d.alocacao.length, "tipo de investimento", "tipos de investimento")}.`}>
+          <div className="pontos" aria-hidden="true">
+            {d.ativos.map((a) => <span key={a.id} className="ponto" style={{ background: corDaClasse(a.class_label) }} />)}
+          </div>
+        </Stat>
+      </div>
 
-      {/* avisos */}
-      {d.alertas.length > 0 && (
+      {/* avisos: só o que fala da carteira */}
+      {alertasDaCarteira.length > 0 && (
         <section className="card span-12" aria-labelledby="t-avisos">
           <div className="card-head">
             <h2 id="t-avisos"><Icon name="info" /> Avisos <span className="badge neutral">{alertas.length}</span></h2>
             {ocultos.length > 0 && (
-              <button className="btn btn-ghost btn-sm" onClick={() => setOcultos([])}>Mostrar todos ({d.alertas.length})</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setOcultos([])}>Mostrar todos ({alertasDaCarteira.length})</button>
             )}
           </div>
           {alertas.length === 0 && <p className="muted">Você já leu todos os avisos.</p>}
@@ -270,7 +316,7 @@ export default function Dashboard() {
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie data={d.alocacao} dataKey="valor" nameKey="classe" innerRadius={68} outerRadius={98} paddingAngle={3} stroke="none">
-                {d.alocacao.map((_, i) => <Cell key={i} fill={CORES[i % CORES.length]} />)}
+                {d.alocacao.map((a) => <Cell key={a.classe} fill={corDaClasse(a.classe)} />)}
               </Pie>
               <Tooltip formatter={(v: number) => brl(v)}
                        contentStyle={{ borderRadius: 12, border: "1px solid var(--borda)", background: "var(--cartao)", color: "var(--texto)" }} />
@@ -279,8 +325,8 @@ export default function Dashboard() {
           <div className="donut-center"><div><small className="muted">Total</small><strong>{brl(d.patrimonio)}</strong></div></div>
         </div>
         <ul className="legend">
-          {d.alocacao.map((a, i) => (
-            <li key={a.classe}><span className="dot" style={{ background: CORES[i % CORES.length] }} />{a.classe}<span className="val">{pct(a.pct, 1)}</span></li>
+          {d.alocacao.map((a) => (
+            <li key={a.classe}><span className="dot" style={{ background: corDaClasse(a.classe) }} />{a.classe}<span className="val">{pct(a.pct, 1)}</span></li>
           ))}
         </ul>
       </section>
@@ -379,8 +425,6 @@ export default function Dashboard() {
           <Link className="btn btn-soft btn-sm" to="/carteira"><Icon name="carteira" size={16} /> Gerenciar carteira</Link>
         </div>
       </section>
-
-      <p className="aviso-legal"><Icon name="escudo" size={18} /> {d.aviso}</p>
     </div>
   );
 }
