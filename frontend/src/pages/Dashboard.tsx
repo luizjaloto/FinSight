@@ -285,7 +285,7 @@ export default function Dashboard() {
                 <YAxis tickFormatter={(v) => `${v}%`} tick={{ fontSize: 13, fill: "var(--suave)" }} width={48} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(v: number) => pct(v)} cursor={{ fill: "var(--primaria-suave)" }}
                          contentStyle={{ borderRadius: 12, border: "1px solid var(--borda)", background: "var(--cartao)", color: "var(--texto)" }} />
-                <Bar dataKey="valor" radius={[10, 10, 0, 0]} maxBarSize={90}>
+                <Bar dataKey="valor" radius={[10, 10, 0, 0]} maxBarSize={90} isAnimationActive={false}>
                   {comparacao.map((_, i) => <Cell key={i} fill={CORES_COMPARACAO[i]} />)}
                   <LabelList
                     dataKey="valor"
@@ -315,7 +315,7 @@ export default function Dashboard() {
         <div className="donut-wrap" role="img" aria-label={d.alocacao.map((a) => `${a.classe}: ${pct(a.pct, 1)}`).join("; ")}>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
-              <Pie data={d.alocacao} dataKey="valor" nameKey="classe" innerRadius={68} outerRadius={98} paddingAngle={3} stroke="none">
+              <Pie data={d.alocacao} dataKey="valor" nameKey="classe" innerRadius={68} outerRadius={98} paddingAngle={3} stroke="none" isAnimationActive={false}>
                 {d.alocacao.map((a) => <Cell key={a.classe} fill={corDaClasse(a.classe)} />)}
               </Pie>
               <Tooltip formatter={(v: number) => brl(v)}

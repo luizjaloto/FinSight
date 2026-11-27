@@ -233,7 +233,7 @@ p.small, .stat .small, ul.small { font-size: 1rem; }
 .bubble.b4 { background: var(--acento-suave); color: var(--acento); }
 .bubble.b-alerta { background: var(--vermelho-suave); color: var(--alerta); }
 .stat-value { font-size: 1.9rem; font-weight: 800; text-transform: capitalize; }
-.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 0.875rem; font-weight: 700; }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 0.875rem; font-weight: 700; white-space: nowrap; }
 .badge.good { background: var(--verde-suave); color: var(--verde); }
 .badge.bad { background: var(--vermelho-suave); color: var(--vermelho); }
 .badge.neutral { background: var(--primaria-suave); color: var(--primaria); }
@@ -284,7 +284,7 @@ tbody th { font-size: 1rem; color: var(--texto); font-weight: 600; }
 tr:hover td, tr:hover tbody th, tbody tr:hover th { background: color-mix(in srgb, var(--primaria-suave) 50%, transparent); }
 .ativo-nome { display: flex; align-items: center; gap: 12px; font-weight: 700; }
 .ativo-nome small { display: block; font-weight: 500; color: var(--suave); }
-.tag { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.875rem; font-weight: 700; }
+.tag { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.875rem; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
 .tag-renda_fixa { background: var(--primaria-suave); color: var(--primaria); }
 .tag-acao { background: var(--acento-suave); color: var(--acento); }
 .tag-fii { background: var(--verde-suave); color: var(--teal); }
