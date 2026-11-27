@@ -283,7 +283,7 @@ export default function Carteira() {
         <Link className="btn btn-soft" to="/"><Icon name="painel" /> Ver painel</Link>
       </div>
 
-      <div className="grid">
+      <div className="grid grid-topo">
         <section className="card span-7" aria-labelledby="t-form">
           <div className="card-head">
             <h2 id="t-form">{aba === "cadastrar" ? <><Icon name="mais" /> Nova aplicação</> : <><Icon name="upload" /> Importar da B3</>}</h2>
