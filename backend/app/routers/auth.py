@@ -85,7 +85,8 @@ def login(body: LoginIn, request: Request):
 
 
 def _user_or_401(db, user_id: str) -> dict[str, Any]:
-    u = db.users.find_one({"_id": user_id}, {"password_hash": 0})
+    # Falso positivo B105: projeção do MongoDB (0 exclui o campo password_hash da leitura).
+    u = db.users.find_one({"_id": user_id}, {"password_hash": 0})  # nosec B105
     if u is None:  # conta excluída entre a validação do token e esta leitura
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Usuário não encontrado.")
     return u

@@ -9,7 +9,8 @@ from typing import Annotated, Literal
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
-DEFAULT_JWT_SECRET = "troque-esta-chave-em-producao"
+# Falso positivo B105: valor padrão usado só em dev/testes; recusado em produção por _strong_secret_in_production.
+DEFAULT_JWT_SECRET = "troque-esta-chave-em-producao"  # nosec B105
 # Valores que já apareceram em arquivos de exemplo: nunca podem ser usados em produção
 EXAMPLE_JWT_SECRETS = {DEFAULT_JWT_SECRET, "troque-por-um-texto-longo-e-aleatorio-com-32-caracteres"}
 MIN_JWT_SECRET_LEN = 32
