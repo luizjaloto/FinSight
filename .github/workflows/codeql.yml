@@ -1,0 +1,47 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+
+# Permissão mínima no topo; permissões extras são concedidas apenas no job que precisa delas.
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["python", "javascript-typescript"]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Inicializar CodeQL
+        uses: github/codeql-action/init@5378192d256ef1302a6980fffe5ca04426d43091 # v3.28.21
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+          config: |
+            paths-ignore:
+              - "**/node_modules/**"
+              - "**/dist/**"
+              - "**/build/**"
+              - "**/.venv/**"
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@5378192d256ef1302a6980fffe5ca04426d43091 # v3.28.21
+
+      - name: Executar análise CodeQL
+        uses: github/codeql-action/analyze@5378192d256ef1302a6980fffe5ca04426d43091 # v3.28.21
+        with:
+          category: "/language:${{ matrix.language }}"
